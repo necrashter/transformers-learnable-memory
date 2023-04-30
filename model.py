@@ -101,7 +101,7 @@ class MemoryMHA(nn.Module):
         super().__init__()
         self.mha = mha
         with torch.no_grad():
-            memory = torch.randn(memory_tokens, mha.input_dim) * 0.02
+            memory = torch.randn(1, memory_tokens, mha.input_dim) * 0.02
         self.memory = nn.parameter.Parameter(memory, requires_grad=True)
         self.mask = nn.parameter.Parameter(mask, requires_grad=False)
 
@@ -204,10 +204,10 @@ class TheModel(nn.Module):
         self.mlp_heads.append(MLP([self.transformer_dim] + mlp_head_sizes))
 
         if memory_tokens > 0:
+            mask = build_attention_mask(self.memory_tokens_list)
             for transformer in self.transformers:
                 assert type(transformer.attention) == MultiHeadAttention
                 attention = transformer.attention
-                mask = build_attention_mask(self.memory_tokens_list)
                 transformer.attention = MemoryMHA(attention, mask, memory_tokens)
 
         # Move to device again (new parameters were added)
@@ -226,10 +226,10 @@ class TheModel(nn.Module):
         """
         device = next(self.parameters()).device
         # Add memory
+        mask = build_attention_mask(self.memory_tokens_list)
         for transformer in self.transformers:
             assert type(transformer.attention) == MultiHeadAttention
             attention = transformer.attention
-            mask = build_attention_mask(self.memory_tokens_list)
             transformer.attention = MemoryMHA(attention, mask, memory_tokens)
         # Move to device again (new parameters were added)
         self.to(device)
@@ -243,6 +243,25 @@ class TheModel(nn.Module):
             assert type(transformer.attention) == MemoryMHA
             parameters.append(transformer.attention.memory)  # type: ignore
         return parameters
+
+    def concatenate(self, other):
+        """
+        Concatenate two separately fine-tuned models.
+        Modifies this model in-place.
+        """
+        device = next(self.parameters()).device
+        for class_token in other.class_tokens[1:]:
+            self.class_tokens.append(class_token)
+        for mlp in other.mlp_heads[1:]:
+            self.mlp_heads.append(mlp)
+        self.memory_tokens_list += other.memory_tokens_list
+        mask = build_attention_mask(self.memory_tokens_list)
+        for t1, t2 in zip(self.transformers, other.transformers):
+            memory = torch.cat((t1.attention.memory.data, t2.attention.memory.data), dim=-2) # type: ignore
+            t1.attention.memory = nn.parameter.Parameter(memory, requires_grad=True) # type: ignore
+            t1.attention.mask = nn.parameter.Parameter(mask, requires_grad=False)  # type: ignore
+        # Move to device again (new parameters were added: mask)
+        self.to(device)
 
     def forward(self, input):
         batch_size = input.size(dim=0)
