@@ -63,7 +63,7 @@ class MultiHeadAttention(nn.Module):
 
 
 class MemoryMHA(nn.Module):
-    def __init__(self, mha, memory_tokens: int):
+    def __init__(self, mha, input_patches: int, memory_tokens: int):
         super().__init__()
         self.mha = mha
         with torch.no_grad():
@@ -73,10 +73,10 @@ class MemoryMHA(nn.Module):
         # Attention masking
         with torch.no_grad():
             # 16 patches, 1 CLS, memory_tokens
-            tokens = 17 + memory_tokens
+            tokens = input_patches + memory_tokens
             mask = torch.ones(1, tokens, tokens)
             # Memory does not attend to other tokens
-            mask[:,17:,:] = 0.0
+            mask[:,input_patches:,:] = 0.0
             self.mask = nn.parameter.Parameter(mask, requires_grad=False)
 
     def forward(self, input):
@@ -161,17 +161,44 @@ class TheModel(nn.Module):
             class_token = torch.randn(1, 1, self.transformer_dim) * 0.02
         return class_token
 
+    def add_head(self, mlp_head_sizes, memory_tokens: int = 0):
+        """
+        Add a new class token and MLP head with given layer sizes.
+        Optionally add memory tokens for the new head.
+
+        Return a list of newly added parameters.
+        """
+        device = next(self.parameters()).device
+
+        class_token = nn.parameter.Parameter(self.init_cls(), requires_grad=True)
+        mlp = MLP([self.transformer_dim] + mlp_head_sizes)
+        self.class_tokens.append(class_token)
+        self.mlp_heads.append(mlp)
+        parameters = [class_token] + list(mlp.parameters())
+
+        if memory_tokens > 0:
+            for transformer in self.transformers:
+                assert type(transformer.attention) == MultiHeadAttention
+                attention = transformer.attention
+                input_patches = 16 + len(self.class_tokens)
+                transformer.attention = MemoryMHA(attention, input_patches, memory_tokens)
+                parameters.append(transformer.attention.memory)
+
+        # Move to device again (new parameters were added)
+        self.to(device)
+        return parameters
+
     def add_memory(self, memory_tokens: int):
         """
-        Convert MultiHeadAttention blocks to MemoryMHA blocks.
+        Convert MultiHeadAttention blocks to MemoryMHA blocks without adding a new head.
         """
-        # Current device
         device = next(self.parameters()).device
         # Add memory
         for transformer in self.transformers:
             assert type(transformer.attention) == MultiHeadAttention
             attention = transformer.attention
-            transformer.attention = MemoryMHA(attention, memory_tokens)  # type: ignore
+            input_patches = 16 + len(self.class_tokens)
+            transformer.attention = MemoryMHA(attention, input_patches, memory_tokens)
         # Move to device again (new parameters were added)
         self.to(device)
 
@@ -188,12 +215,12 @@ class TheModel(nn.Module):
     def forward(self, input):
         batch_size = input.size(dim=0)
         x = add_positional_encoding(self.prelinear(patchify(input)))
-        # Add class token
+        # Add class tokens
         class_tokens = [cls.expand(batch_size, -1, -1) for cls in self.class_tokens]
         x = torch.cat([x] + class_tokens, dim=1)
-        # Pass through transformer
+        # Pass through transformers
         x = self.transformers(x)
-        # Exract class token and pass through MLP head
+        # Exract class tokens and pass through MLP heads
         class_tokens = torch.chunk(x.split(16, dim=-2)[1], len(self.mlp_heads), dim=1)
         return [
             mlp_head(cls.reshape(batch_size, self.transformer_dim))
