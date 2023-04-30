@@ -72,9 +72,23 @@ class MemoryMHA(nn.Module):
 
     def forward(self, input):
         # Expand to fill batch size. Expand doesn't copy memory.
-        expanded_memory = self.memory.expand(input.size(dim=0), -1, -1)
+        num_inputs = input.size(dim=0)
+        expanded_memory = self.memory.expand(num_inputs, -1, -1)
         concatenated = torch.cat((input, expanded_memory), dim=1)
-        attended = self.mha(concatenated)
+
+        q, k, v = [w(concatenated) for w in self.mha.w_qkv]
+        # Attention values for weighted average
+        attention = self.mha.softmax(q.matmul(k.transpose(-1, -2)) * self.mha.scaling)
+        # Attention masking
+        # Memory does not attend to other tokens
+        mask = torch.ones_like(attention)
+        mask[:,num_inputs:,:] = 0.0
+        attention = attention * mask
+        # Concatenated output with attention applied
+        head_out = torch.matmul(attention, v)
+        # Final projection
+        attended = self.mha.final(head_out)
+
         return attended.split(input.size(dim=-2), dim=-2)[0]
 
 
