@@ -133,23 +133,33 @@ class TheModel(nn.Module):
                  D=64,
                  heads=8,
                  mlp_layers=[1024],
-                 mlp_head_sizes=[512],
+                 mlp_head_sizes=[512, 10],
                  transformer_count=2,
                  ):
         super().__init__()
         self.prelinear = nn.Linear(49, D)
-        # Class token, +8 for positional encoding
         # +8 for positional encoding
-        with torch.no_grad():
-            class_token = torch.randn(1, 1, D+8) * 0.02
-        self.class_token = nn.parameter.Parameter(class_token, requires_grad=True)
+        self.transformer_dim = D+8
+        # Class tokens
+        self.class_tokens = nn.ParameterList([
+            nn.parameter.Parameter(self.init_cls(), requires_grad=True),
+        ])
         # Transformers
         self.transformers = nn.Sequential(*[
             TransformerEncoder(D+8, heads, mlp_layers) for _ in range(transformer_count)
         ])
-        # MLP
-        self.mlp_head_input_size = D+8
-        self.mlp_head = MLP([self.mlp_head_input_size] + mlp_head_sizes + [10])
+        # MLP heads
+        self.mlp_heads = nn.ModuleList([
+            MLP([self.transformer_dim] + mlp_head_sizes),
+        ])
+
+    def init_cls(self):
+        """
+        Return a new torch tensor representing a new class token.
+        """
+        with torch.no_grad():
+            class_token = torch.randn(1, 1, self.transformer_dim) * 0.02
+        return class_token
 
     def add_memory(self, memory_tokens: int):
         """
@@ -179,12 +189,14 @@ class TheModel(nn.Module):
         batch_size = input.size(dim=0)
         x = add_positional_encoding(self.prelinear(patchify(input)))
         # Add class token
-        cls = self.class_token.expand(batch_size, -1, -1)
-        x = torch.cat((x, cls), dim=1)
+        class_tokens = [cls.expand(batch_size, -1, -1) for cls in self.class_tokens]
+        x = torch.cat([x] + class_tokens, dim=1)
         # Pass through transformer
         x = self.transformers(x)
         # Exract class token and pass through MLP head
-        cls = x.split(16, dim=-2)[1]
-        cls = cls.reshape(batch_size, self.mlp_head_input_size)
-        return self.mlp_head(cls)
+        class_tokens = torch.chunk(x.split(16, dim=-2)[1], len(self.mlp_heads), dim=1)
+        return [
+            mlp_head(cls.reshape(batch_size, self.transformer_dim))
+            for cls, mlp_head in zip(class_tokens, self.mlp_heads)
+        ]
 
