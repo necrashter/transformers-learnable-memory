@@ -109,15 +109,25 @@ class TransformerEncoder(nn.Module):
 
 
 class TheModel(nn.Module):
-    def __init__(self, D=64, heads=32, mlp_layers=[1024], mlp_head_sizes=[2048]):
+    def __init__(self,
+                 D=64,
+                 heads=8,
+                 mlp_layers=[1024],
+                 mlp_head_sizes=[512],
+                 transformer_count=2,
+                 ):
         super().__init__()
         self.prelinear = nn.Linear(49, D)
         # Class token, +8 for positional encoding
+        # +8 for positional encoding
         with torch.no_grad():
             class_token = torch.randn(1, 1, D+8) * 0.02
         self.class_token = nn.parameter.Parameter(class_token, requires_grad=True)
-        # +8 for positional encoding
-        self.transformer = TransformerEncoder(D+8, heads, mlp_layers)
+        # Transformers
+        self.transformers = nn.Sequential(*[
+            TransformerEncoder(D+8, heads, mlp_layers) for _ in range(transformer_count)
+        ])
+        # MLP
         self.mlp_head_input_size = D+8
         self.mlp_head = MLP([self.mlp_head_input_size] + mlp_head_sizes + [10])
 
@@ -125,12 +135,13 @@ class TheModel(nn.Module):
         """
         Convert MultiHeadAttention blocks to MemoryMHA blocks.
         """
-        assert type(self.transformer.attention) == MultiHeadAttention
         # Current device
         device = next(self.parameters()).device
         # Add memory
-        attention = self.transformer.attention
-        self.transformer.attention = MemoryMHA(attention, memory_tokens)  # type: ignore
+        for transformer in self.transformers:
+            assert type(transformer.attention) == MultiHeadAttention
+            attention = transformer.attention
+            transformer.attention = MemoryMHA(attention, memory_tokens)  # type: ignore
         # Move to device again (new parameters were added)
         self.to(device)
 
@@ -138,8 +149,11 @@ class TheModel(nn.Module):
         """
         Return a list of learnable memory parameters.
         """
-        assert type(self.transformer.attention) == MemoryMHA
-        return [self.transformer.attention.memory]
+        parameters = []
+        for transformer in self.transformers:
+            assert type(transformer.attention) == MemoryMHA
+            parameters.append(transformer.attention.memory)  # type: ignore
+        return parameters
 
     def forward(self, input):
         batch_size = input.size(dim=0)
@@ -148,7 +162,7 @@ class TheModel(nn.Module):
         cls = self.class_token.expand(batch_size, -1, -1)
         x = torch.cat((cls, x), dim=1)
         # Pass through transformer
-        x = self.transformer(x)
+        x = self.transformers(x)
         # Exract class token and pass through MLP head
         cls = x.split(1, dim=-2)[0]
         cls = cls.reshape(batch_size, self.mlp_head_input_size)
