@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from math import inf
 
 def patchify(x):
     """
@@ -27,6 +28,39 @@ def add_positional_encoding(x):
         payload = x[:,i].reshape(x.shape[0], 1, x.shape[2])
         return torch.concat((posarr, payload), 2)
     return torch.concat([process_patch(i) for i in range(16)], 1)
+
+
+def build_attention_mask(memory_tokens_list: list):
+    """
+    From the given list of memory tokens, construct an attention mask for transformer.
+    For now, this is for model concatenatenation only.
+
+    Masked elements are -inf, rest are 0.
+    Mask is supposed to be added to values before softmax.
+    """
+    class_tokens = len(memory_tokens_list) + 1
+    input_tokens = 16 + class_tokens
+    total_tokens = input_tokens + sum(memory_tokens_list)
+
+    with torch.no_grad():
+        mask = torch.zeros(1, input_tokens, total_tokens)
+        # Disable all interactions for all newly added class tokens and memory
+        mask[:,:,17:] = -inf
+        # Enable interactions for each class token and corresponding memory
+        previous_memory = 0
+        for i, memory_tokens in enumerate(memory_tokens_list):
+            # 16 patches + 1 default class token + index of this
+            class_token = 17 + i
+            # Class token can interact with itself
+            mask[:,class_token,class_token] = 0.0
+            # Class token can interact with its memory tokens
+            memory_start_index = input_tokens + previous_memory
+            memory_end_index = memory_start_index + memory_tokens
+            mask[:,class_token,memory_start_index:memory_end_index] = 0.0
+
+            previous_memory += memory_tokens
+
+    return mask
 
 
 class MultiHeadAttention(nn.Module):
@@ -63,21 +97,13 @@ class MultiHeadAttention(nn.Module):
 
 
 class MemoryMHA(nn.Module):
-    def __init__(self, mha, input_patches: int, memory_tokens: int):
+    def __init__(self, mha, mask, memory_tokens: int):
         super().__init__()
         self.mha = mha
         with torch.no_grad():
             memory = torch.randn(memory_tokens, mha.input_dim) * 0.02
         self.memory = nn.parameter.Parameter(memory, requires_grad=True)
-
-        # Attention masking
-        with torch.no_grad():
-            # 16 patches, 1 CLS, memory_tokens
-            tokens = input_patches + memory_tokens
-            mask = torch.ones(1, tokens, tokens)
-            # Memory does not attend to other tokens
-            mask[:,input_patches:,:] = 0.0
-            self.mask = nn.parameter.Parameter(mask, requires_grad=False)
+        self.mask = nn.parameter.Parameter(mask, requires_grad=False)
 
     def forward(self, input):
         # Expand to fill batch size. Expand doesn't copy memory.
@@ -85,11 +111,14 @@ class MemoryMHA(nn.Module):
         expanded_memory = self.memory.expand(num_inputs, -1, -1)
         concatenated = torch.cat((input, expanded_memory), dim=1)
 
-        q, k, v = [w(concatenated) for w in self.mha.w_qkv]
-        # Attention values for weighted average
-        attention = self.mha.softmax(q.matmul(k.transpose(-1, -2)) * self.mha.scaling)
-        # Attention masking
-        attention = attention * self.mask
+        # Note that memory does not attend to other tokens
+        q = self.mha.w_qkv[0](input)
+        k = self.mha.w_qkv[1](concatenated)
+        v = self.mha.w_qkv[2](concatenated)
+        # Compute attention values
+        attention = q.matmul(k.transpose(-1, -2)) * self.mha.scaling
+        # Attention masking before softmax
+        attention = self.mha.softmax(attention + self.mask)
         # Concatenated output with attention applied
         head_out = torch.matmul(attention, v)
         # Final projection
@@ -150,6 +179,7 @@ class TheModel(nn.Module):
         self.mlp_heads = nn.ModuleList([
             MLP([self.transformer_dim] + mlp_head_sizes),
         ])
+        self.memory_tokens_list = []
 
     def init_cls(self):
         """
@@ -168,35 +198,39 @@ class TheModel(nn.Module):
         """
         device = next(self.parameters()).device
 
-        class_token = nn.parameter.Parameter(self.init_cls(), requires_grad=True)
-        mlp = MLP([self.transformer_dim] + mlp_head_sizes)
-        self.class_tokens.append(class_token)
-        self.mlp_heads.append(mlp)
-        parameters = [class_token] + list(mlp.parameters())
+        self.memory_tokens_list.append(memory_tokens)
+
+        self.class_tokens.append(nn.parameter.Parameter(self.init_cls(), requires_grad=True))
+        self.mlp_heads.append(MLP([self.transformer_dim] + mlp_head_sizes))
 
         if memory_tokens > 0:
             for transformer in self.transformers:
                 assert type(transformer.attention) == MultiHeadAttention
                 attention = transformer.attention
-                input_patches = 16 + len(self.class_tokens)
-                transformer.attention = MemoryMHA(attention, input_patches, memory_tokens)
-                parameters.append(transformer.attention.memory)
+                mask = build_attention_mask(self.memory_tokens_list)
+                transformer.attention = MemoryMHA(attention, mask, memory_tokens)
 
         # Move to device again (new parameters were added)
         self.to(device)
+
+        parameters = [self.class_tokens[-1]] + list(self.mlp_heads[-1].parameters())
+        if memory_tokens > 0:
+            parameters += [transformer.attention.memory for transformer in self.transformers] # type: ignore
         return parameters
 
     def add_memory(self, memory_tokens: int):
         """
         Convert MultiHeadAttention blocks to MemoryMHA blocks without adding a new head.
+
+        NOTE: DOESN'T WORK ANYMORE. Adding memory requires adding a new head.
         """
         device = next(self.parameters()).device
         # Add memory
         for transformer in self.transformers:
             assert type(transformer.attention) == MultiHeadAttention
             attention = transformer.attention
-            input_patches = 16 + len(self.class_tokens)
-            transformer.attention = MemoryMHA(attention, input_patches, memory_tokens)
+            mask = build_attention_mask(self.memory_tokens_list)
+            transformer.attention = MemoryMHA(attention, mask, memory_tokens)
         # Move to device again (new parameters were added)
         self.to(device)
 
