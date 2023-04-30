@@ -118,14 +118,12 @@ class MLP(nn.Module):
 class TransformerEncoder(nn.Module):
     def __init__(self, D, heads, mlp_layers):
         super().__init__()
-        self.norm0 = nn.LayerNorm(D)
         self.attention = MultiHeadAttention(D, heads)
-        self.norm1 = nn.LayerNorm(D)
         self.mlp = MLP([D] + mlp_layers + [D])
 
     def forward(self, input):
-        x = self.attention(self.norm0(input)) + input
-        return x + self.mlp(self.norm1(x))
+        x = self.attention(input) + input
+        return x + self.mlp(x)
 
 
 class TheModel(nn.Module):
