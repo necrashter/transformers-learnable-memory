@@ -174,11 +174,11 @@ class TheModel(nn.Module):
         x = add_positional_encoding(self.prelinear(patchify(input)))
         # Add class token
         cls = self.class_token.expand(batch_size, -1, -1)
-        x = torch.cat((cls, x), dim=1)
+        x = torch.cat((x, cls), dim=1)
         # Pass through transformer
         x = self.transformers(x)
         # Exract class token and pass through MLP head
-        cls = x.split(1, dim=-2)[0]
+        cls = x.split(16, dim=-2)[1]
         cls = cls.reshape(batch_size, self.mlp_head_input_size)
         return self.mlp_head(cls)
 
