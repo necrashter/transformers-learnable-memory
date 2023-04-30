@@ -70,6 +70,15 @@ class MemoryMHA(nn.Module):
             memory = torch.randn(memory_tokens, mha.input_dim) * 0.02
         self.memory = nn.parameter.Parameter(memory, requires_grad=True)
 
+        # Attention masking
+        with torch.no_grad():
+            # 16 patches, 1 CLS, memory_tokens
+            tokens = 17 + memory_tokens
+            mask = torch.ones(1, tokens, tokens)
+            # Memory does not attend to other tokens
+            mask[:,17:,:] = 0.0
+            self.mask = nn.parameter.Parameter(mask, requires_grad=False)
+
     def forward(self, input):
         # Expand to fill batch size. Expand doesn't copy memory.
         num_inputs = input.size(dim=0)
@@ -80,10 +89,7 @@ class MemoryMHA(nn.Module):
         # Attention values for weighted average
         attention = self.mha.softmax(q.matmul(k.transpose(-1, -2)) * self.mha.scaling)
         # Attention masking
-        # Memory does not attend to other tokens
-        mask = torch.ones_like(attention)
-        mask[:,num_inputs:,:] = 0.0
-        attention = attention * mask
+        attention = attention * self.mask
         # Concatenated output with attention applied
         head_out = torch.matmul(attention, v)
         # Final projection
