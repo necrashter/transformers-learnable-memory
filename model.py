@@ -113,6 +113,17 @@ class MemoryMHA(nn.Module):
         self.memory = nn.parameter.Parameter(memory, requires_grad=True)
         self.mask = nn.parameter.Parameter(mask, requires_grad=False)
 
+    def extend_memory(self, memory_tokens: int, mask: torch.Tensor):
+        """
+        Add memory tokens and update attention mask.
+        """
+        device = next(self.parameters()).device
+        with torch.no_grad():
+            new_memory = torch.randn(1, memory_tokens, self.mha.input_dim, device=device) * 0.02
+            new_memory = torch.cat((self.memory.data, new_memory), dim=1)
+        self.memory = nn.parameter.Parameter(new_memory, requires_grad=True)
+        self.mask = nn.parameter.Parameter(mask, requires_grad=False)
+
     def forward(self, input):
         # Expand to fill batch size. Expand doesn't copy memory.
         num_inputs = input.size(dim=0)
@@ -217,9 +228,12 @@ class TheModel(nn.Module):
         if memory_tokens > 0:
             mask = build_attention_mask(self.memory_tokens_list, extension)
             for transformer in self.transformers:
-                assert type(transformer.attention) == MultiHeadAttention
-                attention = transformer.attention
-                transformer.attention = MemoryMHA(attention, mask, memory_tokens)
+                if type(transformer.attention) == MultiHeadAttention:
+                    attention = transformer.attention
+                    transformer.attention = MemoryMHA(attention, mask, memory_tokens)
+                else:
+                    assert type(transformer.attention) == MemoryMHA
+                    transformer.attention.extend_memory(memory_tokens, mask) # type: ignore
 
         # Move to device again (new parameters were added)
         self.to(device)
