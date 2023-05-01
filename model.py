@@ -30,10 +30,12 @@ def add_positional_encoding(x):
     return torch.concat([process_patch(i) for i in range(16)], 1)
 
 
-def build_attention_mask(memory_tokens_list: list):
+def build_attention_mask(memory_tokens_list: list, extension: bool = False):
     """
     From the given list of memory tokens, construct an attention mask for transformer.
-    For now, this is for model concatenatenation only.
+    The boolean "extension" determines whether model extension (True) or model
+    concatenatenation (False) is used.
+    It's NOT possible to mix model extension and model concatenatenation.
 
     Masked elements are -inf, rest are 0.
     Mask is supposed to be added to values before softmax.
@@ -51,12 +53,18 @@ def build_attention_mask(memory_tokens_list: list):
         for i, memory_tokens in enumerate(memory_tokens_list):
             # 16 patches + 1 default class token + index of this
             class_token = 17 + i
-            # Class token can interact with itself
-            mask[:,class_token,class_token] = 0.0
-            # Class token can interact with its memory tokens
             memory_start_index = input_tokens + previous_memory
             memory_end_index = memory_start_index + memory_tokens
-            mask[:,class_token,memory_start_index:memory_end_index] = 0.0
+            if extension:
+                # Class token can interact with itself
+                mask[:, class_token:, class_token] = 0.0
+                # Class token can interact with its memory tokens
+                mask[:, class_token:, memory_start_index:memory_end_index] = 0.0
+            else:
+                # Class token can interact with itself
+                mask[:, class_token, class_token] = 0.0
+                # Class token can interact with its memory tokens
+                mask[:, class_token, memory_start_index:memory_end_index] = 0.0
 
             previous_memory += memory_tokens
 
@@ -189,10 +197,13 @@ class TheModel(nn.Module):
             class_token = torch.randn(1, 1, self.transformer_dim) * 0.02
         return class_token
 
-    def add_head(self, mlp_head_sizes, memory_tokens: int = 0):
+    def add_head(self, mlp_head_sizes, memory_tokens: int = 0, extension: bool = False):
         """
         Add a new class token and MLP head with given layer sizes.
         Optionally add memory tokens for the new head.
+        The boolean "extension" determines whether model extension (True) or model
+        concatenatenation (False) is used. It's only valid if memory_tokens > 0.
+        It's NOT possible to mix model extension and model concatenatenation.
 
         Return a list of newly added parameters.
         """
@@ -204,7 +215,7 @@ class TheModel(nn.Module):
         self.mlp_heads.append(MLP([self.transformer_dim] + mlp_head_sizes))
 
         if memory_tokens > 0:
-            mask = build_attention_mask(self.memory_tokens_list)
+            mask = build_attention_mask(self.memory_tokens_list, extension)
             for transformer in self.transformers:
                 assert type(transformer.attention) == MultiHeadAttention
                 attention = transformer.attention
@@ -255,7 +266,7 @@ class TheModel(nn.Module):
         for mlp in other.mlp_heads[1:]:
             self.mlp_heads.append(mlp)
         self.memory_tokens_list += other.memory_tokens_list
-        mask = build_attention_mask(self.memory_tokens_list)
+        mask = build_attention_mask(self.memory_tokens_list, extension=False)
         for t1, t2 in zip(self.transformers, other.transformers):
             memory = torch.cat((t1.attention.memory.data, t2.attention.memory.data), dim=-2) # type: ignore
             t1.attention.memory = nn.parameter.Parameter(memory, requires_grad=True) # type: ignore
