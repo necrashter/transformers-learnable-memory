@@ -37,5 +37,52 @@ def test_memory_capable_vit():
 
     # MemoryCapableViT must be equivalent to the default model if no new head/memory is added.
     model = MemoryCapableViT(model)
-    new_output = model(data)[0]
-    assert torch.allclose(original_output.logits, new_output.logits, atol=1e-5, rtol=1e-5)
+    new_output = model(data)
+    assert torch.allclose(original_output.logits, new_output[0].logits, atol=1e-5, rtol=1e-5)
+
+    old_parameters = list(model.parameters())
+    # Try adding new memory
+    parameters = model.add_head(4)
+    # 1 class token, 12 memory parameters (1 for each self-attention layer),
+    # weight and bias for the classifier head.
+    assert len(parameters) == 15
+    # There shouldn't be any old parameters in newly returned parameters
+    for parameter in parameters:
+        for old_parameter in old_parameters:
+            assert not (parameter is old_parameter)
+    # Newly returned parameters should be in all parameters
+    all_parameters = list(model.parameters())
+    for parameter in parameters:
+        for model_parameter in all_parameters:
+            if parameter is model_parameter:
+                break
+        else:  # Not found
+            assert False
+
+    new_output = model(data)
+    # Must return 2 outputs now
+    assert len(new_output) == 2
+    # First output should not change
+    assert torch.allclose(original_output.logits, new_output[0].logits, atol=1e-5, rtol=1e-5)
+
+    # Try once more
+    old_parameters = all_parameters
+    parameters = model.add_head(4)
+    assert len(parameters) == 15
+    for parameter in parameters:
+        for old_parameter in old_parameters:
+            assert not (parameter is old_parameter)
+    # Newly returned parameters should be in all parameters
+    all_parameters = list(model.parameters())
+    for parameter in parameters:
+        for model_parameter in all_parameters:
+            if parameter is model_parameter:
+                break
+        else:  # Not found
+            assert False
+
+    new_output = model(data)
+    # Must return 3 outputs now
+    assert len(new_output) == 3
+    # First output should not change
+    assert torch.allclose(original_output.logits, new_output[0].logits, atol=1e-5, rtol=1e-5)

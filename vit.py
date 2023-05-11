@@ -91,6 +91,27 @@ class SelfAttentionWithMemory(nn.Module):
             extension,
         ).to(device)
 
+    def add_memory(self, tokens: int, extension: bool = False, std: float = 0.02):
+        """
+        Add a new series of memory tokens to this self-attention block.
+        - tokens: Number of new memory tokens.
+        - extension: If true, the attention masking will use the model extension strategy
+                     instead of model concatenatenation.
+        - std: Standard deviation of the normal distribution that is used to initialize
+               the memory. 0.02 by default. See the end of page 4 in "Fine-tuning Image
+               Transformers using Learnable Memory".
+
+        Returns the newly added memory parameters.
+        """
+        device = next(self.parameters()).device
+        with torch.no_grad():
+            # See the end of page 
+            new_memory = torch.randn(1, tokens, self.query.in_features, device=device) * std
+        new_memory = nn.parameter.Parameter(new_memory, requires_grad=True)
+        self.memory_tokens.append(new_memory)
+        self.update_attention_mask(extension)
+        return new_memory
+
     def transpose_for_scores(self, x: torch.Tensor) -> torch.Tensor:
         """
         Same as ViTSelfAttention.
@@ -166,6 +187,15 @@ class MultiEmbeddings(nn.Module):
         self.position_embeddings = base.position_embeddings
         self.dropout = base.dropout
         self.config = base.config
+
+    def add_cls_token(self):
+        """
+        Append a new class token and return the trainable parameter.
+        """
+        device = self.cls_tokens[0].device
+        cls_token = nn.parameter.Parameter(torch.randn_like(self.cls_tokens[0], device=device))
+        self.cls_tokens.append(cls_token)
+        return cls_token
 
     def interpolate_pos_encoding(self, embeddings: torch.Tensor, height: int, width: int) -> torch.Tensor:
         """
@@ -275,9 +305,32 @@ class MemoryCapableViT(nn.Module):
             )
 
         # Classifier heads
-        self.classifiers = nn.ModuleList([
-            base.classifier,
-        ])
+        self.classifiers = nn.ModuleList([base.classifier])
+
+    def add_head(self, memory_tokens: int, extension: bool = False, std: float = 0.02):
+        """
+        Add a new series of memory tokens to this self-attention block.
+        - memory_tokens: Number of new memory tokens.
+        - extension: If true, the attention masking will use the model extension strategy
+                     instead of model concatenatenation.
+        - std: Standard deviation of the normal distribution that is used to initialize
+               the memory. 0.02 by default. See the end of page 4 in "Fine-tuning Image
+               Transformers using Learnable Memory".
+
+        Returns a list of newly added parameters.
+        """
+        # Add new class token to embeddings
+        cls_token = self.vit.embeddings.add_cls_token()
+        # Add new classifier head
+        first = self.classifiers[0]
+        device = next(first.parameters()).device
+        classifier = nn.Linear(first.in_features, first.out_features, device=device) # type: ignore
+        self.classifiers.append(classifier)
+        # Add memory for each layer
+        memory = [layer.attention.attention.add_memory(memory_tokens, extension, std)
+                  for layer in self.vit.encoder.layer]
+        # Return all newly added parameters
+        return [cls_token] + memory + list(classifier.parameters())
 
     def forward(
         self,
