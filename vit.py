@@ -5,15 +5,58 @@ from typing import List, Optional, Tuple, Union
 from transformers.modeling_outputs import ImageClassifierOutput
 
 
+def build_attention_mask(patches: int, memory_tokens_list: list, extension: bool = False):
+    """
+    From the given list of memory tokens, construct an attention mask for self-attention.
+    The boolean "extension" determines whether model extension (True) or model
+    concatenatenation (False) is used.
+    It's NOT possible to mix model extension and model concatenatenation.
+
+    Masked elements are -inf, rest are 0.
+    Mask is supposed to be added to values before softmax.
+    """
+    class_tokens = len(memory_tokens_list) + 1
+    input_tokens = patches + class_tokens
+    total_tokens = input_tokens + sum(memory_tokens_list)
+
+    with torch.no_grad():
+        mask = torch.zeros(1, input_tokens, total_tokens)
+        # Disable all interactions for all newly added class tokens and memory
+        mask[:, :, (patches + 1):] = -math.inf
+        # Enable interactions for each class token and corresponding memory
+        previous_memory = 0
+        for i, memory_tokens in enumerate(memory_tokens_list):
+            # 16 patches + 1 default class token + index of this
+            class_token = (patches + 1) + i
+            memory_start_index = input_tokens + previous_memory
+            memory_end_index = memory_start_index + memory_tokens
+            if extension:
+                # Class token can interact with itself
+                mask[:, class_token:, class_token] = 0.0
+                # Class token can interact with its memory tokens
+                mask[:, class_token:, memory_start_index:memory_end_index] = 0.0
+            else:
+                # Class token can interact with itself
+                mask[:, class_token, class_token] = 0.0
+                # Class token can interact with its memory tokens
+                mask[:, class_token, memory_start_index:memory_end_index] = 0.0
+
+            previous_memory += memory_tokens
+
+    return mask
+
+
 class SelfAttentionWithMemory(nn.Module):
     """
     Extension of ViTSelfAttention with memory support.
     """
 
-    def __init__(self, base):
+    def __init__(self, base, patch_count: int):
         """
-        Construct the class from the given base ViTSelfAttention.
+        Construct the class from the given base ViTSelfAttention and patch count.
         By default, it won't have any memory input.
+
+        The layer needs to know the patch count to build the attention mask.
         """
         super().__init__()
         self.num_attention_heads = base.num_attention_heads
@@ -29,6 +72,24 @@ class SelfAttentionWithMemory(nn.Module):
 
         # No memory by default.
         self.memory_tokens = nn.ParameterList([])
+
+        # Attention mask
+        self.patch_count = patch_count
+        attention_mask = build_attention_mask(patch_count, [])
+        device = next(self.parameters()).device
+        self.register_buffer("attention_mask", attention_mask.to(device))
+
+    def update_attention_mask(self, extension: bool = False):
+        """
+        Force update the attention mask.
+        This will be done automatically when new memory is added.
+        """
+        device = next(self.parameters()).device
+        self.attention_mask = build_attention_mask(
+            self.patch_count,
+            [memory.size(dim=1) for memory in self.memory_tokens],
+            extension,
+        ).to(device)
 
     def transpose_for_scores(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -63,7 +124,8 @@ class SelfAttentionWithMemory(nn.Module):
         attention_scores = attention_scores * self.attention_scaling
         # attention_scores size: (Batch size, attention heads, tokens, tokens including memory)
 
-        # TODO Apply attention masking
+        # Apply attention masking
+        attention_scores += self.attention_mask
 
         # Normalize the attention scores to probabilities.
         attention_probs = nn.functional.softmax(attention_scores, dim=-1)
@@ -204,8 +266,13 @@ class MemoryCapableViT(nn.Module):
 
         # Upgrade relevant layers
         self.vit.embeddings = MultiEmbeddings(self.vit.embeddings)
+        # Minus one because one of them is for class token
+        patch_count = self.vit.embeddings.position_embeddings.size(dim=1) - 1
         for layer in self.vit.encoder.layer:
-            layer.attention.attention = SelfAttentionWithMemory(layer.attention.attention)
+            layer.attention.attention = SelfAttentionWithMemory(
+                layer.attention.attention,
+                patch_count,
+            )
 
         # Classifier heads
         self.classifiers = nn.ModuleList([
