@@ -9,8 +9,8 @@ def build_attention_mask(patches: int, memory_tokens_list: list, extension: bool
     """
     From the given list of memory tokens, construct an attention mask for self-attention.
     The boolean "extension" determines whether model extension (True) or model
-    concatenatenation (False) is used.
-    It's NOT possible to mix model extension and model concatenatenation.
+    concatenation (False) is used.
+    It's NOT possible to mix model extension and model concatenation.
 
     Masked elements are -inf, rest are 0.
     Mask is supposed to be added to values before softmax.
@@ -96,7 +96,7 @@ class SelfAttentionWithMemory(nn.Module):
         Add a new series of memory tokens to this self-attention block.
         - tokens: Number of new memory tokens.
         - extension: If true, the attention masking will use the model extension strategy
-                     instead of model concatenatenation.
+                     instead of model concatenation.
         - std: Standard deviation of the normal distribution that is used to initialize
                the memory. 0.02 by default. See the end of page 4 in "Fine-tuning Image
                Transformers using Learnable Memory".
@@ -312,7 +312,7 @@ class MemoryCapableViT(nn.Module):
         Add a new series of memory tokens to this self-attention block.
         - memory_tokens: Number of new memory tokens.
         - extension: If true, the attention masking will use the model extension strategy
-                     instead of model concatenatenation.
+                     instead of model concatenation.
         - std: Standard deviation of the normal distribution that is used to initialize
                the memory. 0.02 by default. See the end of page 4 in "Fine-tuning Image
                Transformers using Learnable Memory".
@@ -331,6 +331,28 @@ class MemoryCapableViT(nn.Module):
                   for layer in self.vit.encoder.layer]
         # Return all newly added parameters
         return [cls_token] + memory + list(classifier.parameters())
+
+    def concatenate(self, other: "MemoryCapableViT"):
+        """
+        Concatenate two separately fine-tuned models.
+        Modifies this model in-place.
+        The other model should not be used after this operation. Because it will be sharing
+        parameters with this one.
+
+        NOTE: Both models should be fine-tuned from the same model with the model
+        concatenation strategy (default).
+        """
+        device = next(self.parameters()).device
+        # Note that the first class tokens and classifiers are the same.
+        self.vit.embeddings.cls_tokens.extend(other.vit.embeddings.cls_tokens[1:])
+        for layer1, layer2 in zip(self.vit.encoder.layer, other.vit.encoder.layer):
+            a1 = layer1.attention.attention
+            a2 = layer2.attention.attention
+            a1.memory_tokens.extend(a2.memory_tokens)
+            a1.update_attention_mask(False)
+        self.classifiers.extend(other.classifiers[1:])  # type: ignore
+        # Move to the device again to ensure that the new parameters are in the same device.
+        self.to(device)
 
     def forward(
         self,

@@ -7,6 +7,7 @@ import os
 from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from transformers import ViTModel, ViTConfig, ViTForImageClassification
+from copy import deepcopy
 
 from vit import MemoryCapableViT
 
@@ -20,8 +21,8 @@ datasets_dir = os.path.join(home_dir, "datasets")
 def test_memory_capable_vit():
     model_name = 'google/vit-base-patch32-224-in21k'
     config = ViTConfig.from_pretrained(model_name, num_labels=10, cache_dir=cache_dir)
-    model = ViTForImageClassification.from_pretrained(model_name, config=config, cache_dir=cache_dir)
-    model = model.to(device)
+    base_model = ViTForImageClassification.from_pretrained(model_name, config=config, cache_dir=cache_dir)
+    base_model = base_model.to(device)
 
     transform = transforms.Compose([
         transforms.Resize((224, 224)),
@@ -29,16 +30,16 @@ def test_memory_capable_vit():
         transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
     ])
     dataset = datasets.CIFAR10(root=datasets_dir, train=False, transform=transform, download=True)
-    dataloader = DataLoader(dataset=dataset, batch_size=128, shuffle=False)
+    dataloader = DataLoader(dataset=dataset, batch_size=32, shuffle=False)
     data, _ = next(iter(dataloader))
     data = data.to(device)
 
-    original_output = model(data)
+    original_output = base_model(data).logits
 
     # MemoryCapableViT must be equivalent to the default model if no new head/memory is added.
-    model = MemoryCapableViT(model)
-    new_output = model(data)
-    assert torch.allclose(original_output.logits, new_output[0].logits, atol=1e-5, rtol=1e-5)
+    model = MemoryCapableViT(deepcopy(base_model))
+    new_output = [i.logits for i in model(data)]
+    assert torch.allclose(original_output, new_output[0], atol=1e-5, rtol=1e-5)
 
     old_parameters = list(model.parameters())
     # Try adding new memory
@@ -59,11 +60,12 @@ def test_memory_capable_vit():
         else:  # Not found
             assert False
 
-    new_output = model(data)
+    new_output = [i.logits for i in model(data)]
     # Must return 2 outputs now
     assert len(new_output) == 2
     # First output should not change
-    assert torch.allclose(original_output.logits, new_output[0].logits, atol=1e-5, rtol=1e-5)
+    assert torch.allclose(original_output, new_output[0], atol=1e-5, rtol=1e-5)
+    del new_output
 
     # Try once more
     old_parameters = all_parameters
@@ -81,8 +83,29 @@ def test_memory_capable_vit():
         else:  # Not found
             assert False
 
-    new_output = model(data)
+    model_output = [i.logits for i in model(data)]
     # Must return 3 outputs now
-    assert len(new_output) == 3
+    assert len(model_output) == 3
     # First output should not change
-    assert torch.allclose(original_output.logits, new_output[0].logits, atol=1e-5, rtol=1e-5)
+    assert torch.allclose(original_output, model_output[0], atol=1e-5, rtol=1e-5)
+
+    # Create another model
+    model2 = MemoryCapableViT(base_model)
+    # To avoid out of memory errors
+    del base_model
+    model2.add_head(2)
+    model2.add_head(3)
+    model2_output = [i.logits for i in model2(data)]
+    assert len(model2_output) == 3
+    assert torch.allclose(original_output, model2_output[0], atol=1e-5, rtol=1e-5)
+
+    # Concatenate models
+    model.concatenate(model2)
+    del model2
+    concat_output = [i.logits for i in model(data)]
+    assert len(concat_output) == 5
+    assert torch.allclose( original_output, concat_output[0], atol=1e-5, rtol=1e-5)
+    assert torch.allclose( model_output[1], concat_output[1], atol=1e-5, rtol=1e-5)
+    assert torch.allclose( model_output[2], concat_output[2], atol=1e-5, rtol=1e-5)
+    assert torch.allclose(model2_output[1], concat_output[3], atol=1e-5, rtol=1e-5)
+    assert torch.allclose(model2_output[2], concat_output[4], atol=1e-5, rtol=1e-5)
