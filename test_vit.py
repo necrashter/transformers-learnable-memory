@@ -43,7 +43,7 @@ def test_memory_capable_vit():
 
     old_parameters = list(model.parameters())
     # Try adding new memory
-    parameters = model.add_head(4)
+    parameters = model.add_head(4, 10)
     # 1 class token, 12 memory parameters (1 for each self-attention layer),
     # weight and bias for the classifier head.
     assert len(parameters) == 15
@@ -69,7 +69,7 @@ def test_memory_capable_vit():
 
     # Try once more
     old_parameters = all_parameters
-    parameters = model.add_head(4)
+    parameters = model.add_head(4, 10)
     assert len(parameters) == 15
     for parameter in parameters:
         for old_parameter in old_parameters:
@@ -93,8 +93,8 @@ def test_memory_capable_vit():
     model2 = MemoryCapableViT(base_model)
     # To avoid out of memory errors
     del base_model
-    model2.add_head(2)
-    model2.add_head(3)
+    model2.add_head(2, 10)
+    model2.add_head(3, 10)
     model2_output = [i.logits for i in model2(data)]
     assert len(model2_output) == 3
     assert torch.allclose(original_output, model2_output[0], atol=1e-5, rtol=1e-5)

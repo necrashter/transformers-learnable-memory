@@ -307,10 +307,12 @@ class MemoryCapableViT(nn.Module):
         # Classifier heads
         self.classifiers = nn.ModuleList([base.classifier])
 
-    def add_head(self, memory_tokens: int, extension: bool = False, std: float = 0.02):
+    def add_head(self, memory_tokens: int, num_classes: int,
+                 extension: bool = False, std: float = 0.02):
         """
         Add a new series of memory tokens to this self-attention block.
         - memory_tokens: Number of new memory tokens.
+        - num_classes: Number of classes for the new classifier.
         - extension: If true, the attention masking will use the model extension strategy
                      instead of model concatenation.
         - std: Standard deviation of the normal distribution that is used to initialize
@@ -324,7 +326,7 @@ class MemoryCapableViT(nn.Module):
         # Add new classifier head
         first = self.classifiers[0]
         device = next(first.parameters()).device
-        classifier = nn.Linear(first.in_features, first.out_features, device=device) # type: ignore
+        classifier = nn.Linear(first.in_features, num_classes, device=device) # type: ignore
         self.classifiers.append(classifier)
         # Add memory for each layer
         memory = [layer.attention.attention.add_memory(memory_tokens, extension, std)
