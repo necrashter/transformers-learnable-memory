@@ -1,3 +1,10 @@
+"""
+This extends the ViT in HuggingFace Transformers library and adds support for learnable memory
+described in paper "Fine-tuning Image Transformers using Learnable Memory".
+
+See the original source code of ViT:
+https://github.com/huggingface/transformers/blob/main/src/transformers/models/vit/modeling_vit.py
+"""
 import torch
 from torch import nn
 import math
