@@ -8,12 +8,22 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from transformers import ViTModel, ViTConfig, ViTForImageClassification
 from copy import deepcopy
-
+import os
 from vit import MemoryCapableViT
-
+import random
+device = "cuda:0"
+seed = 42
+random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+os.environ["PYTHONHASHSEED"] = str(seed)
+print(f"Random seed set as {seed}")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-home_dir = os.path.expanduser('~')
+#home_dir = os.path.expanduser('~')
+home_dir = "/hdd/ege"
 cache_dir = os.path.join(home_dir, "ceng502")
 datasets_dir = os.path.join(home_dir, "datasets")
 
@@ -109,3 +119,6 @@ def test_memory_capable_vit():
     assert torch.allclose( model_output[2], concat_output[2], atol=1e-5, rtol=1e-5)
     assert torch.allclose(model2_output[1], concat_output[3], atol=1e-5, rtol=1e-5)
     assert torch.allclose(model2_output[2], concat_output[4], atol=1e-5, rtol=1e-5)
+    return
+
+test_memory_capable_vit()
