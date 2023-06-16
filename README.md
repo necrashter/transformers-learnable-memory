@@ -54,6 +54,7 @@ Dataset Directory Structure:
 	└── datasets
 ```
 - Folders and files with * on their right are the folders and files that should be downloaded.
+- Files with ~ on their right are the notebooks for the examination of the implementation. 
 - Dataset Directory is created on a given directory which should be declared as an argument while training or validation phase. We have created this directory at our HDD because the datasets are huge. The datasets will be downloaded if the code cannot find them at the given directory.
 - models directory contains finetuned learnable memory models for each dataset, and you have to download them if you want to directly use the finetuned model without waiting for training.
 - vit_train.py is the script for training and there are some arguments should be given.
