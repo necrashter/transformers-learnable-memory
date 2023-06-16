@@ -18,6 +18,16 @@ from vit import MemoryCapableViT
 from torchvision.transforms import ToTensor, Lambda, Compose
 from torchvision.transforms.functional import to_pil_image, to_grayscale
 
+seed = 42
+random.seed(seed)
+torch.manual_seed(seed)
+torch.cuda.manual_seed(seed)
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+os.environ["PYTHONHASHSEED"] = str(seed)
+print(f"Random seed is set as {seed}")
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Define a transformation that converts images to RGB
 def to_rgb(image):
@@ -230,16 +240,6 @@ if __name__ == '__main__':
     dataset = str(args.dataset)
     batch_size = int(args.batch_size)
 
-    seed = 42
-    random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-    os.environ["PYTHONHASHSEED"] = str(seed)
-    print(f"Random seed is set as {seed}")
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     train_loader, validation_loader, number_of_classes = create_dataset(dataset, datasets_dir, batch_size)
     criterion = nn.CrossEntropyLoss()
