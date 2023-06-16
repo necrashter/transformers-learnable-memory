@@ -29,29 +29,29 @@ rate warmup for all their finetuning experiments, we also implemented these hype
 
 ## 3.2. Running the code
 
-Directory structure:
 ```
+Directory structure:
 	├── models *
-    │   ├── CIFAR100_model.pt
-    │   ├── Places_model.pt
-    │   ├── INaturalist_model.pt
-    │   └── Sun_model.pt
-    ├── images
-    ├── mnist
-    │
-    ├── vit_train.py *
-    ├── vit_validation.py *
-    ├── vit.py *
-    ├── vit.ipynb ~
-    ├── large-vit.ipynb ~
-    ├── model_concatenate.ipynb ~
-    └── requirements.txt *
+	│   ├── CIFAR100_model.pt
+	│   ├── Places_model.pt
+	│   ├── INaturalist_model.pt
+	│   └── Sun_model.pt
+	├── images
+	├── mnist
+	│
+	├── vit_train.py *
+	├── vit_validation.py *
+	├── vit.py *
+	├── vit.ipynb ~
+	├── large-vit.ipynb ~
+	├── model_concatenate.ipynb ~
+	└── requirements.txt *
 
 Dataset Directory Structure:
 	├── ceng502
-    │   └── models--google--vit-base-patch32-224-in21k
+	│   └── models--google--vit-base-patch32-224-in21k
 	│
-    └── datasets
+	└── datasets
 ```
 - Folders and files with * on their right are the folders and files that should be downloaded.
 - Dataset Directory is created on a given directory which should be declared as an argument while training or validation phase. We have created this directory at our HDD because the datasets are huge. The datasets will be downloaded if the code cannot find them at the given directory.
