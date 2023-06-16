@@ -88,26 +88,26 @@ def create_dataset(dataset, datasets_dir, batch_size):
         number_of_classes = 5089
         
     elif dataset == "Sun":
-            transform = transforms.Compose([
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
-                #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-            ])
-            try:
-                sun_dataset = datasets.SUN397(root=datasets_dir, transform=transform, download=True)
-            except:
-                sun_dataset = datasets.SUN397(root=datasets_dir, transform=transform)
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
+        try:
+            sun_dataset = datasets.SUN397(root=datasets_dir, transform=transform, download=True)
+        except:
+            sun_dataset = datasets.SUN397(root=datasets_dir, transform=transform)
 
-            # Split the dataset into training and testing subsets
-            train_size = int(0.8 * len(sun_dataset))
-            test_size = len(sun_dataset) - train_size
-            train_dataset, test_dataset = torch.utils.data.random_split(sun_dataset, [train_size, test_size])
+        # Split the dataset into training and testing subsets
+        train_size = int(0.8 * len(sun_dataset))
+        test_size = len(sun_dataset) - train_size
+        train_dataset, test_dataset = torch.utils.data.random_split(sun_dataset, [train_size, test_size])
 
-            # Create data loaders for the training and test subsets
-            train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
-            validation_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True)
+        # Create data loaders for the training and test subsets
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+        validation_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True)
 
-            number_of_classes = 397
+        number_of_classes = 397
 
     else:
         raise ValueError(f"Unknown dataset name: {dataset}")
