@@ -39,7 +39,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # Adding optional argument
     
-    parser.add_argument('-m', '--models-list', nargs='+', default=[], help = "List for models and datasets", required = True)
+    parser.add_argument('-m', '--models-list', nargs='+', default=[], choices=["CIFAR100","INaturalist","Places", "Sun"], help = "List for models and datasets", required = True)
     parser.add_argument("-b", "--batch_size", type = int, help="Number of bathces", default = 64)
     parser.add_argument("-t", "--number_of_memory_tokens", type = int, help="Number of memory tokens", default = 1)
 
