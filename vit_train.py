@@ -86,11 +86,34 @@ def create_dataset(dataset, datasets_dir, batch_size):
         validation_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True)
 
         number_of_classes = 5089
+        
+    elif dataset == "Sun":
+            transform = transforms.Compose([
+                transforms.Resize((224, 224)),
+                transforms.ToTensor(),
+                #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            ])
+            try:
+                sun_dataset = datasets.SUN397(root=datasets_dir, transform=transform, download=True)
+            except:
+                sun_dataset = datasets.SUN397(root=datasets_dir, transform=transform)
+
+            # Split the dataset into training and testing subsets
+            train_size = int(0.8 * len(sun_dataset))
+            test_size = len(sun_dataset) - train_size
+            train_dataset, test_dataset = torch.utils.data.random_split(sun_dataset, [train_size, test_size])
+
+            # Create data loaders for the training and test subsets
+            train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+            validation_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True)
+
+            number_of_classes = 397
 
     else:
         raise ValueError(f"Unknown dataset name: {dataset}")
 
     return train_loader, validation_loader, number_of_classes
+
 
 
 def warmup_linear(step):
@@ -192,9 +215,10 @@ def pretrained_model(
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-d", "--dataset", choices=["CIFAR100","INaturalist","Places"], help="Dataset for training", required=True)
-    # Adding optional arguments
-    parser.add_argument("-r", "--directory", help="Directory for home_dir", default = os.path.expanduser('~'))
+    # Adding optional argument
+    parser.add_argument("-d", "--dataset", choices=["CIFAR100","INaturalist","Places", "Sun"], help="Dataset for training", required=True)
+    
+    parser.add_argument("-r", "--directory", help="Directory for home_dir", default = "/hdd/ege")
     parser.add_argument("-e", "--epochs", type = int, help="Number of epochs", default = 20)
     parser.add_argument("-b", "--batch_size", type = int, help="Number of elements in a batch", default = 64)
     parser.add_argument("-m", "--number_of_memory_tokens", type = int, help="Number of memory tokens", default = 1)
