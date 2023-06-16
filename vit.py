@@ -10,17 +10,6 @@ from torch import nn
 import math
 from typing import List, Optional, Tuple, Union
 from transformers.modeling_outputs import ImageClassifierOutput
-import random
-import os
-device = "cuda:0"
-seed = 42
-random.seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed(seed)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-os.environ["PYTHONHASHSEED"] = str(seed)
-print(f"Random seed set as {seed}")
 
 
 def build_attention_mask(patches: int, memory_tokens_list: list, extension: bool = False):

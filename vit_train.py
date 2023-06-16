@@ -19,20 +19,6 @@ from torchvision.transforms import ToTensor, Lambda, Compose
 from torchvision.transforms.functional import to_pil_image, to_grayscale
 
 
-device = "cuda:0"
-seed = 42
-random.seed(seed)
-torch.manual_seed(seed)
-torch.cuda.manual_seed(seed)
-torch.backends.cudnn.deterministic = True
-torch.backends.cudnn.benchmark = False
-os.environ["PYTHONHASHSEED"] = str(seed)
-print(f"Random seed set as {seed}")
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-
 # Define a transformation that converts images to RGB
 def to_rgb(image):
     image = to_pil_image(image)
@@ -40,70 +26,68 @@ def to_rgb(image):
 
 
 def create_dataset(dataset, datasets_dir, batch_size):
+    if dataset == "CIFAR100":
+        # Load and preprocess the dataset
+        transform = transforms.Compose([
+            transforms.RandomResizedCrop((224)),
+            transforms.ToTensor(),
+            #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
 
-        if dataset == "CIFAR100":
-            # Load and preprocess the dataset
-            transform = transforms.Compose([
-                transforms.RandomResizedCrop((224)),
-                transforms.ToTensor(),
-                #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-            ])
+        # CIFAR100
+        train_dataset = datasets.CIFAR100(root=datasets_dir, train=True, transform=transform, download=True)
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+        validation_dataset = datasets.CIFAR100(root=datasets_dir, train=False, transform=transform, download=True)
+        validation_loader = DataLoader(dataset=validation_dataset, batch_size=batch_size, shuffle=False)
+        number_of_classes = 100
 
+    elif dataset == "Places":
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        ])
 
-            # CIFAR100
-            train_dataset = datasets.CIFAR100(root=datasets_dir, train=True, transform=transform, download=True)
-            train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
-            validation_dataset = datasets.CIFAR100(root=datasets_dir, train=False, transform=transform, download=True)
-            validation_loader = DataLoader(dataset=validation_dataset, batch_size=batch_size, shuffle=False)
-            number_of_classes = 100
+        try:
+            train_dataset = datasets.Places365(root=datasets_dir,small=True, split="train-standard", transform=transform, download=True)
 
-        elif dataset == "Places":
-            transform = transforms.Compose([
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
-                #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-            ])
+        except:
+            train_dataset = datasets.Places365(root=datasets_dir,small=True, split="train-standard", transform=transform)
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
 
-            try:
-                train_dataset = datasets.Places365(root=datasets_dir,small=True, split="train-standard", transform=transform, download=True)
+        try:
+            validation_dataset = datasets.Places365(root=datasets_dir,small=True, split="val", transform=transform, download=True)
 
-            except:
-                train_dataset = datasets.Places365(root=datasets_dir,small=True, split="train-standard", transform=transform)
-            train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+        except:
+            validation_dataset = datasets.Places365(root=datasets_dir,small=True, split="val", transform=transform)
 
-            try:
-                validation_dataset = datasets.Places365(root=datasets_dir,small=True, split="val", transform=transform, download=True)
+        validation_loader = DataLoader(dataset=validation_dataset, batch_size=batch_size, shuffle=False)
 
-            except:
-                validation_dataset = datasets.Places365(root=datasets_dir,small=True, split="val", transform=transform)
+        number_of_classes = 365
 
-            validation_loader = DataLoader(dataset=validation_dataset, batch_size=batch_size, shuffle=False)
+    elif dataset == "INaturalist":
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            Lambda(to_rgb)
+        ])
+        try:
+            naturalist_dataset = datasets.INaturalist(root=datasets_dir, version="2017", transform=transform, download=True)
+        except:
+            naturalist_dataset = datasets.INaturalist(root=datasets_dir, version="2017", transform=transform)
 
-            number_of_classes = 365
+        # Split the dataset into training and testing subsets
+        train_size = int(0.8 * len(naturalist_dataset))
+        test_size = len(naturalist_dataset) - train_size
+        train_dataset, test_dataset = torch.utils.data.random_split(naturalist_dataset, [train_size, test_size])
 
-        elif dataset == "INaturalist":
-            transform = transforms.Compose([
-                transforms.Resize((224, 224)),
-                transforms.ToTensor(),
-                Lambda(to_rgb)
-            ])
-            try:
-                naturalist_dataset = datasets.INaturalist(root=datasets_dir, version="2017", transform=transform, download=True)
-            except:
-                naturalist_dataset = datasets.INaturalist(root=datasets_dir, version="2017", transform=transform)
+        # Create data loaders for the training and test subsets
+        train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+        validation_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True)
 
-            # Split the dataset into training and testing subsets
-            train_size = int(0.8 * len(naturalist_dataset))
-            test_size = len(naturalist_dataset) - train_size
-            train_dataset, test_dataset = torch.utils.data.random_split(naturalist_dataset, [train_size, test_size])
-
-            # Create data loaders for the training and test subsets
-            train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
-            validation_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True)
-
-            number_of_classes = 5089
-           
-        elif dataset == "Sun":
+        number_of_classes = 5089
+        
+    elif dataset == "Sun":
             transform = transforms.Compose([
                 transforms.Resize((224, 224)),
                 transforms.ToTensor(),
@@ -124,12 +108,18 @@ def create_dataset(dataset, datasets_dir, batch_size):
             validation_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=True)
 
             number_of_classes = 397
-            
-            
-        return train_loader, validation_loader, number_of_classes
 
-# Linear warmup
+    else:
+        raise ValueError(f"Unknown dataset name: {dataset}")
+
+    return train_loader, validation_loader, number_of_classes
+
+
+
 def warmup_linear(step):
+    """
+    Linear warmup.
+    """
     if step < warmup_steps:
         return float(step) / float(max(1, warmup_steps))
     return 1.0
@@ -138,15 +128,14 @@ def warmup_linear(step):
 def train(model, parameters,
           dataloader, valid_dataloader,
           output_head=None,
-         total_steps = 20):
-    
+          total_steps = 20):
     model.train()
-    
+
     # SGD with Momentum optimizer
     optimizer = optim.SGD(parameters, lr=0.1, momentum=0.9)
     # Cosine learning rate schedule
     cosine_scheduler = CosineAnnealingLR(optimizer, T_max=total_steps)
-    
+
     warmup_scheduler = LambdaLR(optimizer, warmup_linear)
 
     train_losses, valid_accuracy = [], []
@@ -163,33 +152,33 @@ def train(model, parameters,
             loss = criterion(outputs.logits, targets)
             loss_val = loss.detach().cpu().item()
             train_loss += loss_val
-    
+
             optimizer.zero_grad()
             loss.backward()
-            
+
             # Gradient clipping
             clip_grad_norm_(parameters, max_norm=1.0)
-            
+
             optimizer.step()
-            
+
             # Update learning rate
             if step < warmup_steps:
                 warmup_scheduler.step()
             else:
                 cosine_scheduler.step()
-                
+
         epoch_loss = train_loss/len(dataloader)
         print(f"step {step} loss is {epoch_loss:.4f}")
         train_losses.append(epoch_loss)
-        
+
         valid_acc = validate(model, valid_dataloader, output_head)
         print(f"step {step} valid acc is {valid_acc:.2f}")
         valid_accuracy.append(valid_acc)
 
         #print(f"Epoch {epoch + 1}/{num_epochs} loss: {train_loss}")
     return train_losses, valid_accuracy
-        
-    
+
+
 def validate(model, dataloader, output_head=None):
     torch.manual_seed(seed)
     torch.cuda.manual_seed(seed)
@@ -209,8 +198,9 @@ def validate(model, dataloader, output_head=None):
             _, predicted = torch.max(outputs.logits, 1)
             total += targets.size(0)
             correct += (predicted == targets).sum().item()
-    
+
     return correct / total
+
 
 def pretrained_model(
         cache_dir,
@@ -222,6 +212,7 @@ def pretrained_model(
     model = model.to(device)
     return model
 
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # Adding optional argument
@@ -229,43 +220,41 @@ if __name__ == '__main__':
     
     parser.add_argument("-r", "--directory", help="Directory for home_dir", default = "/hdd/ege")
     parser.add_argument("-e", "--epochs", type = int, help="Number of epochs", default = 20)
-    parser.add_argument("-b", "--batch_size", type = int, help="Number of bathces", default = 64)
+    parser.add_argument("-b", "--batch_size", type = int, help="Number of elements in a batch", default = 64)
     parser.add_argument("-m", "--number_of_memory_tokens", type = int, help="Number of memory tokens", default = 1)
     args = parser.parse_args()
-    
-    
+
     home_dir = str(args.directory)
-    # Directories for cache and datasets
     cache_dir = os.path.join(home_dir, "ceng502")
     datasets_dir = os.path.join(home_dir, "datasets")
-    
     dataset = str(args.dataset)
     batch_size = int(args.batch_size)
-    
-    train_loader, validation_loader, number_of_classes = create_dataset(dataset, datasets_dir, batch_size)
-    
-    criterion = nn.CrossEntropyLoss()
 
+    seed = 42
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    print(f"Random seed is set as {seed}")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    train_loader, validation_loader, number_of_classes = create_dataset(dataset, datasets_dir, batch_size)
+    criterion = nn.CrossEntropyLoss()
     # Define number of steps and warmup steps
     total_steps = int(args.epochs)
     warmup_steps = 5
-    
-    
+
     model = pretrained_model(cache_dir)
     parameters = [model.vit.embeddings.cls_token] + list(model.classifier.parameters())
-    
     base_model = model
-    
     model = MemoryCapableViT(deepcopy(base_model))
-    
-    new_parameters = model.add_head(memory_tokens= int(args.number_of_memory_tokens), num_classes=number_of_classes)
-    
+    new_parameters = model.add_head(memory_tokens=int(args.number_of_memory_tokens), num_classes=number_of_classes)
+
     memory_train, memory_val = train(model, new_parameters, train_loader,validation_loader, output_head=1, total_steps = total_steps)
-    
-    print(f" Validation Accuracy : {validate(model, validation_loader, output_head=1)}")
-    
+
+    print(f"Validation Accuracy: {validate(model, validation_loader, output_head=1)}")
+
     torch.save(model.state_dict(), f"models/{dataset}_model.pt")
-
-
-
-    

@@ -8,10 +8,9 @@ from torch.utils.data import DataLoader
 from torchvision import datasets, transforms
 from transformers import ViTModel, ViTConfig, ViTForImageClassification
 from copy import deepcopy
-import os
 from vit import MemoryCapableViT
 import random
-device = "cuda:0"
+
 seed = 42
 random.seed(seed)
 torch.manual_seed(seed)
@@ -22,8 +21,7 @@ os.environ["PYTHONHASHSEED"] = str(seed)
 print(f"Random seed set as {seed}")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-#home_dir = os.path.expanduser('~')
-home_dir = "/hdd/ege"
+home_dir = os.path.expanduser('~')
 cache_dir = os.path.join(home_dir, "ceng502")
 datasets_dir = os.path.join(home_dir, "datasets")
 
