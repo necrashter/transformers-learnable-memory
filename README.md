@@ -281,4 +281,15 @@ python3 vit_validation.py --models_list CIFAR100 INaturalist Places Sun
 
 # Contact
 
-@TODO: Provide your names & email addresses and any other info with which people can contact you.
+You can contact us by opening an issue in this repository, which is preferred for matters related to this implementation.
+Alternatively, you can send an e-mail to us:
+- İlker Işık, e238051@metu.edu.tr
+- Ege Berk Büyükbaş, @TODO
+
+# License
+
+All original code we wrote in this repository is licensed under [the MIT License](./LICENSE).
+
+Everything except for the following is our original work:
+- The implementation in [`vit.py`](vit.py) is based on the [ViT implementation of the HuggingFace library](https://github.com/huggingface/transformers/blob/main/src/transformers/models/vit/modeling_vit.py), which is licensed under [the Apache 2.0 License](http://www.apache.org/licenses/LICENSE-2.0). It contains our contributions as well as the base code from the HuggingFace library.
+- All pictures in the [images](./images) directory are borrowed from the paper. These images belong to their copyright holders. They are provided in this repository for educational purposes only, which constitute fair use under the US copyright law.

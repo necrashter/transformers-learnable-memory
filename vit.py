@@ -4,6 +4,25 @@ described in paper "Fine-tuning Image Transformers using Learnable Memory".
 
 See the original source code of ViT:
 https://github.com/huggingface/transformers/blob/main/src/transformers/models/vit/modeling_vit.py
+
+The original source code is licensed under the Apache 2.0 License.
+The original copyright notice:
+# Copyright 2021 Google AI, Ross Wightman, The HuggingFace Inc. team. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+The modifications made by us are licensed under the MIT License.
+See the LICENSE file provided in the repository.
 """
 import torch
 from torch import nn
