@@ -29,11 +29,172 @@ Finally, the attention masking allows us to concatenate separately fine-tuned mo
 
 ## 2.1. The original method
 
-@TODO: Explain the original method.
+### 2.1.1. Memory tokens
+
+<p align="center"><img src="images/fig1.png" width="500"></p>
+<p align="center"><i>Figure 1. Memory tokens are concatenated to the input before each encoder layer. (Borrowed from the paper.)</i></p>
+
+The method builds on top of a regular transformer encoder layer.
+First, let's remember the input to a visual transformer (ViT):
+
+```math
+\mathbf{z}^{vit}_0 := [x_{\texttt{cls}}, E x_1, \dots,E x_{N}] + E_{pos}
+```
+
+This equation incorporates flattened image patches, denoted as $x_1 \dots x_N$, that undergo processing through a learnable linear transformation $E$. The class token, represented by $x_{\texttt{cls}}$, serves as a unique learnable token shared across inputs, with its output value serving as the embedding for final classification. Additionally, the equation includes the position embedding $E_{pos}$.
+
+In order to enhance the transformer with memory, we introduce $m$ learnable memory embeddings $E_{mem} \in \mathbb{R}^{m \times D}$ where $D$ represents the dimensionality of the input tokens.
+These tokens are concatenated to the input as follows:
+
+```math
+\mathbf{z}^{mem}_0 := [\mathbf{z}^{vit}_0; E^0_{mem}]
+```
+
+As a result, the transformer now receives a total of $N + 1 + m$ tokens.
+Subsequently, this input is passed through the transformer encoder layer, maintaining the same architecture as ViT.
+However, an important distinction is that the updated memory is not propagated, i.e., the output of the self-attention module is truncated to include only the first $N+1$ tokens .
+Hence, the output of layer $l$, denoted as $\mathbf{y}_l$, consists of solely $N+1$ tokens which correspond to the class token and the image patches.
+
+The memory is incorporated to the subsequent layers similarly.
+Given the truncated output of the previous layer $\mathbf{y}_{l-1}$, the input to the layer $l$ is:
+
+```math
+\mathbf{z}^{mem}_l = [\mathbf{y}_{l-1}; E^l_{mem}]
+```
+
+This process is illustrated in the following figure.
+
+<p align="center"><img src="images/fig2.png" width="500"></p>
+<p align="center"><i>Figure 2a. Demonstration of how the encoder layer is modified to implement memory. (Borrowed from the paper.)</i></p>
+
+Each memory token is randomly initialized with samples drawn from a normal distribution with a mean of 0 and a standard deviation of 0.02.
+
+### 2.1.2. Alternative ways of introducing memory
+
+[The previous work in this field](https://arxiv.org/abs/2006.11527) opted for propagating the memory after the self-attention layer instead of discarding it.
+Another alternative is to propagate the memory and update it additively at each encoder layer.
+However, the authors found that propagating memory in any of these ways performs worse than the method proposed in the paper, i.e., concatenating different memory tokens in each layer and discarding them.
+
+<p align="center"><img src="images/fig2b.png" width="500"></p>
+<p align="center"><i>Figure 2b. Demonstration of alternative ways to implement memory. (Borrowed from the paper.)</i></p>
+
+Note that these approaches were not implemented in this repository since they are not introduced by this paper.
+
+
+### 2.1.3. Attention masking
+
+If we fine-tune a pre-trained transformer model's class token on a new dataset or add memory, there is typically a decrease in performance on the original task.
+A popular way to address this problem is multi-task learning, which carries out the learning process on all datasets simultaneously.
+However, this approach is not always feasible due to practical constraints such as data ownership by separate entities.
+
+To overcome this limitation, the authors propose the following **non-destructive fine-tuning method**:
+1. A new class token and a new per-task head is introduced alongside the memory.
+2. These newly added parameters are fine-tuned without modifying the original model parameters.
+3. An attention masking strategy is employed in the self-attention layers, which causes the original class token to remain the same even after the addition of new parameters and fine-tuning.
+
+Thus, the fine-tuned model produces two outputs simultaneously: one for the original dataset (on which the model was pre-trained) and one for the new dataset (on which the model was fine-tuned).
+The output for the original dataset is identical to the output from the unmodified pre-trained model.
+Therefore, this approach allows the reuse of not only parameters but also the computation since the fine-tuned model effectively emulates two models at the same time.
+
+Furthermore, it is possible to concatenate multiple models that are based on the same pre-trained model but fine-tuned separately on different datasets.
+The output of the concatenated model will contain the output of each fine-tuned model.
+This enables massive computation reuse at inference time since we only need to run one concatenated model instead of many fine-tuned models.
+Model concatenation process is depicted in the following figure.
+
+<p align="center"><img src="images/model-concat.png" width="500"></p>
+<p align="center"><i>Figure 3. Concatenation of separately fine-tuned models. (Borrowed from the paper.)</i></p>
+
+The attention masking works by preventing the original model tokens from attending to the newly added tokens, thereby preserving the original model outputs.
+However, the new class token can freely attend to the old tokens.
+Note that the memory tokens don't attend to any other token since they are not passed on to the following layers.
+See the table below for more information.
+
+<p align="center"><img src="images/attention-mask.png" width="500"></p>
+<p align="center"><i>Table 1. Token interactions in attention masking. (Borrowed from the paper.)</i></p>
+
+If the goal is to fine-tune an already fine-tuned model on another dataset, there are two different ways to implement the attention masking:
+1. **Model concatenation:** We can disallow interactions between the tokens added in the first fine-tuning and the second fine-tuning. This is equivalent to fine-tuning two models separately and concatenating them.
+2. **Model extension:** The tokens added in the second fine-tuning can attend to the tokens from the first fine-tuning (but not vice-versa since that would affect the output of the first fine-tuning).
+
+
 
 ## 2.2. Our interpretation 
 
-@TODO: Explain the parts that were not clearly explained in the original paper and how you interpreted them.
+We believe that our implementation is consistent with the method described in the paper, since the method is clearly explained and not much is left to interpretation.
+This section will go into minor implementation details that were not given in the paper (rightly so, since too much detail can harm the brevity) and how we handled them.
+
+## 2.2.1. Background
+
+First, recall [how a self-attention layer works](https://arxiv.org/abs/1706.03762).
+Initially, we compute the $q$, $k$, $v$ (query, key, value) vectors by applying three separate linear projections to the input $z$:
+
+```math
+q = Q z
+```
+```math
+k = K z
+```
+```math
+v = V z
+```
+
+An optional bias term can be added to these equations, which is omitted for brevity.
+
+After that, the scaled dot-product attention is applied:
+
+```math
+\mathrm{Attention}(q, k, v) = \mathrm{softmax}(\frac{qk^T}{\sqrt{d_k}})v
+```
+
+where $\frac{1}{\sqrt{d_k}}$ is the scaling factor.
+
+## 2.2.2. Attention masking
+
+By default, the vision transformer in HuggingFace library concatenates the class token to the beginning.
+We modified it so that the class tokens are appended to the end, and the memory tokens come after them.
+With this modification, the attention mask becomes identical to the matrix given in Table 1.
+
+We apply the masking before the softmax function.
+Because if we apply masking after softmax by multiplying certain elements with 0, the attention scores will not add up to 1.
+Since the softmax operation exponentiates the inputs, the mask should be incorporated to the input using addition instead of multiplication.
+Therefore, the masked elements will have a value of `-inf` (which maps to 0 after exponentiation) and the rest will be 0, the additive identity.
+
+`build_attention_mask` in [`vit.py`](vit.py) constructs the attention mask given in Table 1, which is then added to the input of the softmax in the self-attention layer:
+
+```math
+\mathrm{Attention}(q, k, v) = \mathrm{softmax}(\frac{qk^T}{\sqrt{d_k}} + \mathrm{mask})v
+```
+
+Also note that memory tokens are not given in Table 1, since they don't attend to any other token.
+However, if we attempt to mask them as we did in the previous equation, all elements in one row of the attention mask will be `-inf`, which will cause a division by zero error in the softmax.
+
+To fix this, we simply don't concatenate the memory tokens while calculating the queries $q$.
+For the given input $z$, $z_{mem}$ is the input concatenated with the memory tokens $E_{mem}$ for this layer:
+
+```math
+z_{mem} :=  [z; E_{mem}]
+```
+
+Then, $q$, $k$, $v$ vectors are computed as follows:
+
+```math
+q = Q z
+```
+```math
+k = K z_{mem}
+```
+```math
+v = V z_{mem}
+```
+
+With this change, the outer dot product $qk^T$ will yield a matrix that is exactly the same shape as the attention mask given in Table 1.
+Thanks to this, the matrix constructed by `build_attention_mask` in [`vit.py`](vit.py) is exactly the same as Table 1 in terms of columns and rows: memory tokens are not present in the query rows.
+
+Furthermore, the matrix multiplication of attention scores (softmax output) and $v$ will naturally remove the memory tokens from the output since $q$ doesn't contain the memory tokens.
+Thus, we don't need to do any additional truncation operation.
+
+These are implemented the `forward` method of `SelfAttentionWithMemory`.
+
 
 # 3. Experiments and results
 
@@ -113,7 +274,10 @@ python3 vit_validation.py --models_list CIFAR100 INaturalist Places Sun
 
 # 5. References
 
-@TODO: Provide your references here.
+- Sandler, M., Zhmoginov, A., Vladymyrov, M., & Jackson, A. (2022, March 30). [**Fine-tuning image transformers using learnable memory.**](https://arxiv.org/abs/2203.15243) arXiv.org. https://arxiv.org/abs/2203.15243
+- Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I. (2017, December 6). [**Attention is all you need.**](https://arxiv.org/abs/1706.03762) arXiv.org. https://arxiv.org/abs/1706.03762
+- Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., Uszkoreit, J., & Houlsby, N. (2021, June 3). [**An image is worth 16x16 words: Transformers for image recognition at scale.**](https://arxiv.org/abs/2010.11929) arXiv.org. https://arxiv.org/abs/2010.11929
+- Burtsev, M. S., Kuratov, Y., Peganov, A., & Sapunov, G. V. (2021, February 16). [**Memory transformer.**](https://arxiv.org/abs/2006.11527) arXiv.org. https://arxiv.org/abs/2006.11527
 
 # Contact
 
