@@ -37,14 +37,18 @@ Finally, the attention masking allows us to concatenate separately fine-tuned mo
 The method builds on top of a regular transformer encoder layer.
 First, let's remember the input to a visual transformer (ViT):
 
-$$\mathbf{z}^{vit}_0 :=  [x_{\texttt{cls}}, E x_1, \dots,E x_{N}] + E_{pos}$$
+```math
+\mathbf{z}^{vit}_0 := [x_{\texttt{cls}}, E x_1, \dots,E x_{N}] + E_{pos}
+```
 
 This equation incorporates flattened image patches, denoted as $x_1 \dots x_N$, that undergo processing through a learnable linear transformation $E$. The class token, represented by $x_{\texttt{cls}}$, serves as a unique learnable token shared across inputs, with its output value serving as the embedding for final classification. Additionally, the equation includes the position embedding $E_{pos}$.
 
 In order to enhance the transformer with memory, we introduce $m$ learnable memory embeddings $E_{mem} \in \mathbb{R}^{m \times D}$ where $D$ represents the dimensionality of the input tokens.
 These tokens are concatenated to the input as follows:
 
-$$\mathbf{z}^{mem}_0 :=  [\mathbf{z}^{vit}_0; E^0_{mem}]$$
+```math
+\mathbf{z}^{mem}_0 := [\mathbf{z}^{vit}_0; E^0_{mem}]
+```
 
 As a result, the transformer now receives a total of $N + 1 + m$ tokens.
 Subsequently, this input is passed through the transformer encoder layer, maintaining the same architecture as ViT.
@@ -54,7 +58,9 @@ Hence, the output of layer $l$, denoted as $\mathbf{y}_l$, consists of solely $N
 The memory is incorporated to the subsequent layers similarly.
 Given the truncated output of the previous layer $\mathbf{y}_{l-1}$, the input to the layer $l$ is:
 
-$$\mathbf{z}^{mem}_l = [\mathbf{y}_{l-1}; E^l_{mem}]$$
+```math
+\mathbf{z}^{mem}_l = [\mathbf{y}_{l-1}; E^l_{mem}]
+```
 
 This process is illustrated in the following figure.
 
@@ -122,17 +128,25 @@ This section will go into minor implementation details that were not given in th
 First, recall [how a self-attention layer works](https://arxiv.org/abs/1706.03762).
 Initially, we compute the $q$, $k$, $v$ (query, key, value) vectors by applying three separate linear projections to the input $z$:
 
-$$q = Q z$$
-$$k = K z$$
-$$v = V z$$
+```math
+q = Q z
+```
+```math
+k = K z
+```
+```math
+v = V z
+```
 
 An optional bias term can be added to these equations, which is omitted for brevity.
 
 After that, the scaled dot-product attention is applied:
 
-$$\mathrm{Attention}(q, k, v) = \mathrm{softmax}(\frac{qk^T}{\sqrt{d_k}})v$$
+```math
+\mathrm{Attention}(q, k, v) = \mathrm{softmax}(\frac{qk^T}{\sqrt{d_k}})v
+```
 
-where $\frac{1}{\sqrt{d_k}$ is the scaling factor.
+where $\frac{1}{\sqrt{d_k}}$ is the scaling factor.
 
 ## 2.2.2. Attention masking
 
@@ -147,21 +161,31 @@ Therefore, the masked elements will have a value of `-inf` (which maps to 0 afte
 
 `build_attention_mask` in [`vit.py`](vit.py) constructs the attention mask given in Table 1, which is then added to the input of the softmax in the self-attention layer:
 
-$$\mathrm{Attention}(q, k, v) = \mathrm{softmax}(\frac{qk^T}{\sqrt{d_k}} + \mathrm{mask})v$$
+```math
+\mathrm{Attention}(q, k, v) = \mathrm{softmax}(\frac{qk^T}{\sqrt{d_k}} + \mathrm{mask})v
+```
 
 Also note that memory tokens are not given in Table 1, since they don't attend to any other token.
 However, if we attempt to mask them as we did in the previous equation, all elements in one row of the attention mask will be `-inf`, which will cause a division by zero error in the softmax.
 
 To fix this, we simply don't concatenate the memory tokens while calculating the queries $q$.
-For the given input $z$, $z^{mem}$ is the input concatenated with the memory tokens $E_{mem}$ for this layer:
+For the given input $z$, $z_{mem}$ is the input concatenated with the memory tokens $E_{mem}$ for this layer:
 
-$$z^{mem} :=  [z; E_{mem}]$$
+```math
+z_{mem} :=  [z; E_{mem}]
+```
 
 Then, $q$, $k$, $v$ vectors are computed as follows:
 
-$$q = Q z$$
-$$k = K z^{mem}$$
-$$v = V z^{mem}$$
+```math
+q = Q z
+```
+```math
+k = K z_{mem}
+```
+```math
+v = V z_{mem}
+```
 
 With this change, the outer dot product $qk^T$ will yield a matrix that is exactly the same shape as the attention mask given in Table 1.
 Thanks to this, the matrix constructed by `build_attention_mask` in [`vit.py`](vit.py) is exactly the same as Table 1 in terms of columns and rows: memory tokens are not present in the query rows.
