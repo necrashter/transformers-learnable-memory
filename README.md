@@ -59,12 +59,23 @@ $$\mathbf{z}^{mem}_l = [\mathbf{y}_{l-1}; E^l_{mem}]$$
 This process is illustrated in the following figure.
 
 <p align="center"><img src="images/fig2.png"></p>
-<p align="center"><i>Figure 2. Demonstration of how the encoder layer is modified to implement memory. (Borrowed from the paper.)</i></p>
+<p align="center"><i>Figure 2a. Demonstration of how the encoder layer is modified to implement memory. (Borrowed from the paper.)</i></p>
 
 Each memory token is randomly initialized with samples drawn from a normal distribution with a mean of 0 and a standard deviation of 0.02.
 
+### 2.1.2. Alternative ways of introducing memory
 
-### 2.1.2. Attention masking
+[The previous work in this field](https://arxiv.org/abs/2006.11527) opted for propagating the memory after the self-attention layer instead of discarding it.
+Another alternative is to propagate the memory and update it additively at each encoder layer.
+However, the authors found that propagating memory in any of these ways performs worse than the method proposed in the paper, i.e., concatenating different memory tokens in each layer and discarding them.
+
+<p align="center"><img src="images/fig2b.png"></p>
+<p align="center"><i>Figure 2b. Demonstration of alternative ways to implement memory. (Borrowed from the paper.)</i></p>
+
+Note that these approaches were not implemented in this repository since they are not introduced by this paper.
+
+
+### 2.1.3. Attention masking
 
 If we fine-tune a pre-trained transformer model's class token on a new dataset or add memory, there is typically a decrease in performance on the original task.
 A popular way to address this problem is multi-task learning, which carries out the learning process on all datasets simultaneously.
