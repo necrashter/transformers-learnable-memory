@@ -228,7 +228,7 @@ if __name__ == '__main__':
     # Adding optional argument
     parser.add_argument("-d", "--dataset", choices=["CIFAR100","INaturalist","Places", "Sun"], help="Dataset for training", required=True)
     
-    parser.add_argument("-r", "--directory", help="Directory for home_dir", default = "/hdd/ege")
+    parser.add_argument("-r", "--directory", help="Directory for home_dir", default = os.path.expanduser('~'))
     parser.add_argument("-e", "--epochs", type = int, help="Number of epochs", default = 20)
     parser.add_argument("-b", "--batch_size", type = int, help="Number of elements in a batch", default = 64)
     parser.add_argument("-m", "--number_of_memory_tokens", type = int, help="Number of memory tokens", default = 1)
