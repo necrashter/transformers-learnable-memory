@@ -234,7 +234,10 @@ Dataset Directory Structure:
 
 # 5. References
 
-@TODO: Provide your references here.
+- Sandler, M., Zhmoginov, A., Vladymyrov, M., & Jackson, A. (2022, March 30). [**Fine-tuning image transformers using learnable memory.**](https://arxiv.org/abs/2203.15243) arXiv.org. https://arxiv.org/abs/2203.15243
+- Vaswani, A., Shazeer, N., Parmar, N., Uszkoreit, J., Jones, L., Gomez, A. N., Kaiser, L., & Polosukhin, I. (2017, December 6). [**Attention is all you need.**](https://arxiv.org/abs/1706.03762) arXiv.org. https://arxiv.org/abs/1706.03762
+- Dosovitskiy, A., Beyer, L., Kolesnikov, A., Weissenborn, D., Zhai, X., Unterthiner, T., Dehghani, M., Minderer, M., Heigold, G., Gelly, S., Uszkoreit, J., & Houlsby, N. (2021, June 3). [**An image is worth 16x16 words: Transformers for image recognition at scale.**](https://arxiv.org/abs/2010.11929) arXiv.org. https://arxiv.org/abs/2010.11929
+- Burtsev, M. S., Kuratov, Y., Peganov, A., & Sapunov, G. V. (2021, February 16). [**Memory transformer.**](https://arxiv.org/abs/2006.11527) arXiv.org. https://arxiv.org/abs/2006.11527
 
 # Contact
 
