@@ -80,11 +80,27 @@ Dataset Directory Structure:
 ```bash
   pip install -r requirements.txt
 ```
+- Training:
+To train memory tokens for a given dataset, you have to execute vit_train.py script with arguments. 
+The usage is like this:
+```
+python3 vit_train.py --dataset {CIFAR100/INaturalist/Places/Sun} --directory {directory_for_datasets} --epochs {number_of_epochs} --batch_size {number_of_batch_size} --number_of_memory_tokens {number_of_memory_tokens}
+```
 
+```dataset``` is the option for dataset, ```directory``` is the option for where you want to download the datasets which are huge, so keep in mind that. ```epochs```, ```batch_size``` and ```number_of_memory_tokens``` are the options for hyperparameters.
 
+- Validation:
+To validate your model with different datasets, you have to execute vit_validation.py script with arguments.
+The usage is like this:
+```
+python3 vit_validation.py --models_list {CIFAR100/INaturalist/Places/Sun} --directory {directory_for_datasets} --batch_size {number_of_batch_size} --number_of_memory_tokens {number_of_memory_tokens}
+```
+```models_list``` is the option for list of models, you can give all 4 models as ```CIFAR100 INaturalist Places Sun```. For example, if you want to validate the model which concatenate all 4 memory tokens at once, you have to run the below command.
 
-
-
+```
+python3 vit_validation.py --models_list CIFAR100 INaturalist Places Sun
+```
+```directory``` is the option for where you want to download or already downloaded the datasets. ```batch_size``` and ```number_of_memory_tokens``` are the options for hyperparameters, but keep in mind that number_of_memory_tokens should be same with the model training value.
 
 
 ## 3.3. Results
