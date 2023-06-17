@@ -29,7 +29,76 @@ Finally, the attention masking allows us to concatenate separately fine-tuned mo
 
 ## 2.1. The original method
 
-@TODO: Explain the original method.
+### 2.1.1. Memory tokens
+
+<p align="center"><img src="images/fig1.png"></p>
+<p align="center"><i>Figure 1. Memory tokens are concatenated to the input before each encoder layer. (Borrowed from the paper.)</i></p>
+
+The method builds on top of a regular transformer encoder layer.
+First, let's remember the input to a visual transformer (ViT):
+
+$$\mathbf{z}^{vit}_0 :=  [x_{\texttt{cls}}, E x_1, \dots,E x_{N}] + E_{pos}$$
+
+This equation incorporates flattened image patches, denoted as $x_1 \dots x_N$, that undergo processing through a learnable linear transformation $E$. The class token, represented by $x_{\texttt{cls}}$, serves as a unique learnable token shared across inputs, with its output value serving as the embedding for final classification. Additionally, the equation includes the position embedding $E_{pos}$.
+
+In order to enhance the transformer with memory, we introduce $m$ learnable memory embeddings $E_{mem} \in \mathbb{R}^{m \times D}$ where $D$ represents the dimensionality of the input tokens.
+These tokens are concatenated to the input as follows:
+
+$$\mathbf{z}^{mem}_0 :=  [\mathbf{z}^{vit}_0; E^0_{mem}]$$
+
+As a result, the transformer now receives a total of $N + 1 + m$ tokens.
+Subsequently, this input is passed through the transformer encoder layer, maintaining the same architecture as ViT.
+However, an important distinction is that the updated memory is not propagated, i.e., the output of the self-attention module is truncated to include only the first $N+1$ tokens .
+Hence, the output of layer $l$, denoted as $\mathbf{y}_l$, consists of solely $N+1$ tokens which correspond to the class token and the image patches.
+
+The memory is incorporated to the subsequent layers similarly.
+Given the truncated output of the previous layer $\mathbf{y}_{l-1}$, the input to the layer $l$ is:
+
+$$\mathbf{z}^{mem}_l = [\mathbf{y}_{l-1}; E^l_{mem}]$$
+
+This process is illustrated in the following figure.
+
+<p align="center"><img src="images/fig2.png"></p>
+<p align="center"><i>Figure 2. Demonstration of how the encoder layer is modified to implement memory. (Borrowed from the paper.)</i></p>
+
+Each memory token is randomly initialized with samples drawn from a normal distribution with a mean of 0 and a standard deviation of 0.02.
+
+
+### 2.1.2. Attention masking
+
+If we fine-tune a pre-trained transformer model's class token on a new dataset or add memory, there is typically a decrease in performance on the original task.
+A popular way to address this problem is multi-task learning, which carries out the learning process on all datasets simultaneously.
+However, this approach is not always feasible due to practical constraints such as data ownership by separate entities.
+
+To overcome this limitation, the authors propose the following **non-destructive fine-tuning method**:
+1. A new class token and a new per-task head is introduced alongside the memory.
+2. These newly added parameters are fine-tuned without modifying the original model parameters.
+3. An attention masking strategy is employed in the self-attention layers, which causes the original class token to remain the same even after the addition of new parameters and fine-tuning.
+
+Thus, the fine-tuned model produces two outputs simultaneously: one for the original dataset (on which the model was pre-trained) and one for the new dataset (on which the model was fine-tuned).
+The output for the original dataset is identical to the output from the unmodified pre-trained model.
+Therefore, this approach allows the reuse of not only parameters but also the computation since the fine-tuned model effectively emulates two models at the same time.
+
+Furthermore, it is possible to concatenate multiple models that are based on the same pre-trained model but fine-tuned separately on different datasets.
+The output of the concatenated model will contain the output of each fine-tuned model.
+This enables massive computation reuse at inference time since we only need to run one concatenated model instead of many fine-tuned models.
+Model concatenation process is depicted in the following figure.
+
+<p align="center"><img src="images/model-concat.png"></p>
+<p align="center"><i>Figure 3. Concatenation of separately fine-tuned models. (Borrowed from the paper.)</i></p>
+
+The attention masking works by preventing the original model tokens from attending to the newly added tokens, thereby preserving the original model outputs.
+However, the new class token can freely attend to the old tokens.
+Note that the memory tokens don't attend to any other token since they are not passed on to the following layers.
+See the table below for more information.
+
+<p align="center"><img src="images/attention-mask.png"></p>
+<p align="center"><i>Table 1. Token interactions in attention masking. (Borrowed from the paper.)</i></p>
+
+If the goal is to fine-tune an already fine-tuned model on another dataset, there are two different ways to implement the attention masking:
+1. **Model concatenation:** We can disallow interactions between the tokens added in the first fine-tuning and the second fine-tuning. This is equivalent to fine-tuning two models separately and concatenating them.
+2. **Model extension:** The tokens added in the second fine-tuning can attend to the tokens from the first fine-tuning (but not vice-versa since that would affect the output of the first fine-tuning).
+
 
 ## 2.2. Our interpretation 
 
