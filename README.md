@@ -100,9 +100,66 @@ If the goal is to fine-tune an already fine-tuned model on another dataset, ther
 2. **Model extension:** The tokens added in the second fine-tuning can attend to the tokens from the first fine-tuning (but not vice-versa since that would affect the output of the first fine-tuning).
 
 
+
 ## 2.2. Our interpretation 
 
-@TODO: Explain the parts that were not clearly explained in the original paper and how you interpreted them.
+We believe that our implementation is consistent with the method described in the paper, since the method is clearly explained and not much is left to interpretation.
+This section will go into minor implementation details that were not given in the paper (rightly so, since too much detail can harm the brevity) and how we handled them.
+
+## 2.2.1. Background
+
+First, recall [how a self-attention layer works](https://arxiv.org/abs/1706.03762).
+Initially, we compute the $q$, $k$, $v$ (query, key, value) vectors by applying three separate linear projections to the input $z$:
+
+$$q = Q z$$
+$$k = K z$$
+$$v = V z$$
+
+An optional bias term can be added to these equations, which is omitted for brevity.
+
+After that, the scaled dot-product attention is applied:
+
+$$\mathrm{Attention}(q, k, v) = \mathrm{softmax}(\frac{qk^T}{\sqrt{d_k}})v$$
+
+where $\frac{1}{\sqrt{d_k}$ is the scaling factor.
+
+## 2.2.2. Attention masking
+
+By default, the vision transformer in HuggingFace library concatenates the class token to the beginning.
+We modified it so that the class tokens are appended to the end, and the memory tokens come after them.
+With this modification, the attention mask becomes identical to the matrix given in Table 1.
+
+We apply the masking before the softmax function.
+Because if we apply masking after softmax by multiplying certain elements with 0, the attention scores will not add up to 1.
+Since the softmax operation exponentiates the inputs, the mask should be incorporated to the input using addition instead of multiplication.
+Therefore, the masked elements will have a value of `-inf` (which maps to 0 after exponentiation) and the rest will be 0, the additive identity.
+
+`build_attention_mask` in [`vit.py`](vit.py) constructs the attention mask given in Table 1, which is then added to the input of the softmax in the self-attention layer:
+
+$$\mathrm{Attention}(q, k, v) = \mathrm{softmax}(\frac{qk^T}{\sqrt{d_k}} + \mathrm{mask})v$$
+
+Also note that memory tokens are not given in Table 1, since they don't attend to any other token.
+However, if we attempt to mask them as we did in the previous equation, all elements in one row of the attention mask will be `-inf`, which will cause a division by zero error in the softmax.
+
+To fix this, we simply don't concatenate the memory tokens while calculating the queries $q$.
+For the given input $z$, $z^{mem}$ is the input concatenated with the memory tokens $E_{mem}$ for this layer:
+
+$$z^{mem} :=  [z; E_{mem}]$$
+
+Then, $q$, $k$, $v$ vectors are computed as follows:
+
+$$q = Q z$$
+$$k = K z^{mem}$$
+$$v = V z^{mem}$$
+
+With this change, the outer dot product $qk^T$ will yield a matrix that is exactly the same shape as the attention mask given in Table 1.
+Thanks to this, the matrix constructed by `build_attention_mask` in [`vit.py`](vit.py) is exactly the same as Table 1 in terms of columns and rows: memory tokens are not present in the query rows.
+
+Furthermore, the matrix multiplication of attention scores (softmax output) and $v$ will naturally remove the memory tokens from the output since $q$ doesn't contain the memory tokens.
+Thus, we don't need to do any additional truncation operation.
+
+These are implemented the `forward` method of `SelfAttentionWithMemory`.
+
 
 # 3. Experiments and results
 
