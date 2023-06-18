@@ -281,7 +281,10 @@ bash ./download_models.sh
 This script requires the `wget` utility, which is preinstalled by default on many Linux distributions.
 
 ## 3.3. Results
-![Results from the paper]([https://github.com/username/repository/raw/main/logo.png](https://github.com/necrashter/transformers-learnable-memory/raw/master/images/results_from_paper.png))
+
+<p align="center"><img src="images/results_from_paper.png" width="500"></p>
+<p align="center"><i>Table 1. Token interactions in attention masking. (Borrowed from the paper.)</i></p>
+![Results from the paper]([[https://github.com/username/repository/raw/main/logo.png](https://github.com/necrashter/transformers-learnable-memory/raw/master/images/results_from_paper.png)](https://github.com/necrashter/transformers-learnable-memory/raw/master/images/results_from_paper.png))
 
 
 | Dataset      | Validation Result |
