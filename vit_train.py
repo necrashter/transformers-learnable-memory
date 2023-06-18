@@ -257,4 +257,8 @@ if __name__ == '__main__':
 
     print(f"Validation Accuracy: {validate(model, validation_loader, output_head=1)}")
 
+    #create models directory if not exists
+    if not os.path.exists("models"):
+        os.makedirs("models")
+        
     torch.save(model.state_dict(), f"models/{dataset}_model.pt")
