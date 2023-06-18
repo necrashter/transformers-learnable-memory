@@ -8,8 +8,6 @@ import transformers
 from transformers import ViTModel, ViTConfig, ViTForImageClassification
 from tqdm.auto import tqdm
 import os
-import matplotlib.pyplot as plt
-from IPython.display import clear_output
 from copy import deepcopy
 import random
 from torch.nn.utils import clip_grad_norm_
