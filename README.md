@@ -231,6 +231,7 @@ Dataset Directory Structure:
 ```
 - Folders and files with * on their right are the folders and files that should be downloaded.
 - Files with ~ on their right are the notebooks for the examination of the implementation. 
+- models directory and the models that we have trained should be downloaded via following the steps at the [section 3.2.1](#downloading-the-models)
 - Dataset Directory is created on a given directory which should be declared as an argument while training or validation phase. We have created this directory at our HDD because the datasets are huge. The datasets will be downloaded if the code cannot find them at the given directory.
 - models directory contains finetuned learnable memory models for each dataset, and you have to download them if you want to directly use the finetuned model without waiting for training.
 - vit_train.py is the script for training and there are some arguments should be given.
@@ -263,6 +264,7 @@ python3 vit_validation.py --models_list CIFAR100 INaturalist Places Sun
 ```
 ```directory``` is the option for where you want to download or already downloaded the datasets. ```batch_size``` and ```number_of_memory_tokens``` are the options for hyperparameters, but keep in mind that number_of_memory_tokens should be same with the model training value.
 
+<a name="downloading-the-models"></a>
 ### 3.2.1. Downloading the models
 
 The models we trained are available on [this HuggingFace repository](https://huggingface.co/necrashter/transformers-learnable-memory).
@@ -282,9 +284,13 @@ This script requires the `wget` utility, which is preinstalled by default on man
 
 ## 3.3. Results
 
+As we stated the datasets are tremendous, so we could not conduct experiments for every experiments that the paper has implemented. We only tried 1 memory cell (token) model for the 4 datasets. In addition to that, as we stated we have faced some resource problems in terms of time and memory constraints. Moreover, some datasets do not have train and validation partitions and the paper did not share their splitting logic, so we just randomly splitted the dataset.
+Even though there are some limitations as we stated, we still get comparable results with the paper implementation. In addition to that, we even get better accuracy for SUN-397 and i-Naturalist datasets which do not have train and validation set by default, so one of the reason why we get better accuracy is the randomly split of the datasets. The accuracy values of the paper can be seen below.
 <p align="center"><img src="images/results_from_paper.png" width="500"></p>
 <p align="center"><i>Table 2. Accuracy for different datasets for each fine-tuning regime of the paper (Borrowed from the paper.)</i></p>
 
+We only compare the results with the column 1 cells which is the result for finetuning 1 memory token models.
+The our implementation accuracy values can be seen in the below table.
 <p align="center">
 <table>
   <tr>
@@ -292,25 +298,28 @@ This script requires the `wget` utility, which is preinstalled by default on man
     <th>Validation Result</th>
   </tr>
   <tr>
-    <td>CIFAR100</td>
-    <td>64.08</td>
+  	<td>SUN-397</td>
+    <td>80.96</td>
   </tr>
   <tr>
-    <td>Places</td>
-    <td>50.47</td>
-  </tr>
-  <tr>
-    <td>INaturalist</td>
+  	<td>iNaturalist</td>
     <td>58.70</td>
   </tr>
   <tr>
-    <td>Sun</td>
-    <td>80.96</td>
+  	<td>CIFAR-100</td>
+    <td>64.08</td>
+  </tr>
+  <tr>
+    <td>Places-365</td>
+    <td>50.47</td>
   </tr>
 </table>
 <i>Table 3. Validation results for different datasets from our implementation.</i>
 </p>
 
+As we can easily see, we have similar results with the results of the paper implementation. Only CIFAR-100 dataset has significantly worse result than paper. The reasons that we thought are the number of epochs and relatively small dataset. We only trained for 20 epochs because we want to have similar number of epochs for each dataset, and other datasets are much bigger than CIFAR-100 dataset, so 20 epochs may be a little bit small number for a relatively small dataset. 
+
+An important side note is in our script we do not multiply accuracy values with 100, so you will see floating point numbers for the accuracy values. You have to multiply these values with 100 to get accuracy percentage.
 
 
 # 4. Conclusion
