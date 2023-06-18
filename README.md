@@ -263,6 +263,22 @@ python3 vit_validation.py --models_list CIFAR100 INaturalist Places Sun
 ```
 ```directory``` is the option for where you want to download or already downloaded the datasets. ```batch_size``` and ```number_of_memory_tokens``` are the options for hyperparameters, but keep in mind that number_of_memory_tokens should be same with the model training value.
 
+### 3.2.1. Downloading the models
+
+The models we trained are available on [this HuggingFace repository](https://huggingface.co/necrashter/transformers-learnable-memory).
+Since these models have a large file size, we didn't include them here.
+However, we supply [a Bash script](./download_models.sh) for easily downloading the models from HuggingFace.
+
+Run the script using
+```bash
+./download_models.sh
+```
+If that doesn't work, try:
+```bash
+bash ./download_models.sh
+```
+
+This script requires the `wget` utility, which is preinstalled by default on many Linux distributions.
 
 ## 3.3. Results
 
