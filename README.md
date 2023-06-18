@@ -282,7 +282,13 @@ This script requires the `wget` utility, which is preinstalled by default on man
 
 ## 3.3. Results
 
-@TODO: Present your results and compare them to the original paper. Please number your figures & tables as if this is a paper.
+| Dataset      | Validation Result |
+| ----------- | ----------- |
+| CIFAR100    | 0.6408      |
+| Places      | 0.5047      |
+| INaturalist | 0.5870      |
+| Sun         | 0.8096      |
+
 
 # 4. Conclusion
 
