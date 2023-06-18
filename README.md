@@ -293,19 +293,19 @@ This script requires the `wget` utility, which is preinstalled by default on man
   </tr>
   <tr>
     <td>CIFAR100</td>
-    <td>0.6408</td>
+    <td>64.08</td>
   </tr>
   <tr>
     <td>Places</td>
-    <td>0.5047</td>
+    <td>50.47</td>
   </tr>
   <tr>
     <td>INaturalist</td>
-    <td>0.5870</td>
+    <td>58.70</td>
   </tr>
   <tr>
     <td>Sun</td>
-    <td>0.8096</td>
+    <td>80.96</td>
   </tr>
 </table>
 <i>Table 3. Validation results for different datasets from our implementation.</i>
