@@ -200,8 +200,47 @@ These are implemented the `forward` method of `SelfAttentionWithMemory`.
 
 ## 3.1. Experimental setup
 
-The original paper uses ViT-B/32 base model for finetuning with learnable memory. They have also examined ViT-B/16 and ViT-L/32 models for learnable memory token. The paper conducted their experiments on 4 different datasets which are CIFAR-100, i-Naturalist, Places-365, SUN-397. They have used accuracy value of the models on the validation sets as their performance metric. These 4 datasets can be easily found on the Internet. In addition to that, these datasets are also implemented in pytorch's dataset package. However, some implementation details about these datasets are not stated in the paper. For example, i-Naturalist and SUN-397 datasets do not have splits as training and validation sets, and the paper is not explained how they split the dataset into train and validation so we just randomly 0.8-0.2 splitted the datasets for these two dataset. Moreover, Places365 and i-Naturalist datasets have several different versions in the pytorch dataset package, and the versions are also not stated in the paper. We have used standart version for Places-365 dataset and 2017 version for i-Naturalist dataset. They have used SGD with Momentum with gradient clipping and 5-step linear
-rate warmup for all their finetuning experiments, we also implemented these hyperparameters and have also used these settings in our experiments. In the paper, they have followed standard inception preprocessing for all datasets except CIFAR-100, where they used random clipping. We also followed the same preprocessing steps for all datasets. We also initialized the memory tokens from a distribution of N(0, 0.02) as in the paper. The main differences between the paper and our experimentation setups are the number of batch sizes and the number of finetuning steps. They have used 512 batch size and run for 20000 steps. However, due to limited resources in terms of memory and time constraints that we have, we were able to use 64 as our batch size and the number of steps are 20 steps for CIFAR-100, 10 steps i-Naturalist and SUN-397, 3 steps for Places365 as our finetuning steps. The numbers are much smaller than the paper's number of step, but the datasets are huge. For example, one epoch time duration is more than 13 hours for Places365 dataset. However, they have stated shorter runs generally reached slightly worse results but preserved the relative relationship, and we also found out our results are comparable with the paper's result. We only tested 1 cell memory token for our 4 dataset and compared with the result of the paper's 1 cell memory token. In the paper, they have also shared the full finetuning and head+class token only finetuning. In our implementation, we did not add them because these are not the main contributions of the paper. However, you can examine these type of finetuning options in our sample notebook.
+In this section, we will provide information about the base model, the datasets, and the training process.
+
+### 3.1.1. Base model
+
+In the paper, the authors use ViT-B/32 base transformer model pre-trained on ImageNet-21K.
+This is the case for all experiments, with the only exception being the experiment in which they compare different ViT architectures: ViT-B/32, ViT-B/16, and ViT-L/32.
+We didn't aim to reproduce that particular experiment due to our limited resources; we focused on fine-tuning ViT-B/32.
+Consequently, we used [this ViT-B/32 model pre-trained on ImageNet-21K](https://huggingface.co/google/vit-base-patch32-224-in21k) from HuggingFace.
+
+### 3.1.2. Datasets
+
+In the paper, the experiments were conducted on 4 distinct datasets: CIFAR-100, i-Naturalist, Places-365, and SUN-397.
+The performance metric in these experiments was the accuracy of the models on the respective validation sets.
+These 4 datasets can be easily found on the internet, and are also available in PyTorch's dataset module.
+
+However, the paper lacks specific implementation details regarding some of these datasets.
+For example, it does not explain how the i-Naturalist and SUN-397 datasets were split into training and validation sets.
+To address this, we randomly split these datasets with an 80-20 ratio to create the training and validation sets.
+Moreover, there are multiple versions of the Places-365 and i-Naturalist datasets in the PyTorch dataset package, but the paper does not specify which versions were used.
+For our experiments, we utilized the standard version of the Places-365 dataset and the 2017 version of the i-Naturalist dataset.
+
+### 3.1.3. Training
+
+For all fine-tuning experiments in the paper, the authors used SGD with Momentum, along with gradient clipping and a 5-step linear rate warmup.
+We followed the same hyperparameters and settings in our experiments.
+The paper adopted standard inception preprocessing for all datasets except for CIFAR-100, where random clipping was used.
+We also followed these preprocessing steps for consistency.
+Similarly, we initialized the memory tokens from the distribution of $\mathcal{N}(0, 0.02)$, as described in the paper.
+
+There are some differences between our experimentation setup and the paper's setup in terms of batch size and the number of fine-tuning steps.
+The paper used a batch size of 512 and ran for 20000 steps.
+Because of memory limitations, we had to use a batch size of 64, which would require us to train for 160000 steps in order to process the same amount of samples.
+However, due to limited resources and time constraints, we had to reduce the number of fine-tuning steps as well: 15640 steps for CIFAR-100, 84400 steps for i-Naturalist, 13600 steps for SUN-397, and 84560 steps for Places-365.
+Although our numbers of steps are significantly smaller, please note that the datasets are huge.
+For instance, a single epoch on the Places-365 dataset (which constitutes 28180 steps when the batch size is 64) took over 13 hours.
+Nevertheless, the paper mentioned that shorter runs generally yielded slightly worse results while preserving the relative relationships, and our results are comparable to those reported in the paper.
+
+In our experiments, we only tested 1 cell memory token for all datasets and compared the results with the paper's findings using the same configuration.
+The paper also discussed full fine-tuning and head+class token fine-tuning, but we did not include them in our implementation as they are not the main contributions of the paper.
+However, you can explore these types of fine-tuning options in our sample notebook.
+
 
 ## 3.2. Running the code
 
