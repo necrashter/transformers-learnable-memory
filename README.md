@@ -283,16 +283,34 @@ This script requires the `wget` utility, which is preinstalled by default on man
 ## 3.3. Results
 
 <p align="center"><img src="images/results_from_paper.png" width="500"></p>
-<p align="center"><i>Table 1. Token interactions in attention masking. (Borrowed from the paper.)</i></p>
-![Results from the paper]([[https://github.com/username/repository/raw/main/logo.png](https://github.com/necrashter/transformers-learnable-memory/raw/master/images/results_from_paper.png)](https://github.com/necrashter/transformers-learnable-memory/raw/master/images/results_from_paper.png))
+<p align="center"><i>Table 2. Accuracy for different datasets for each fine-tuning regime of the paper (Borrowed from the paper.)</i></p>
 
+<p align="center">
+<table>
+  <tr>
+    <th>Dataset</th>
+    <th>Validation Result</th>
+  </tr>
+  <tr>
+    <td>CIFAR100</td>
+    <td>0.6408</td>
+  </tr>
+  <tr>
+    <td>Places</td>
+    <td>0.5047</td>
+  </tr>
+  <tr>
+    <td>INaturalist</td>
+    <td>0.5870</td>
+  </tr>
+  <tr>
+    <td>Sun</td>
+    <td>0.8096</td>
+  </tr>
+</table>
+<i>Table 3. Validation results for different datasets from our implementation.</i>
+</p>
 
-| Dataset      | Validation Result |
-| ----------- | ----------- |
-| CIFAR100    | 0.6408      |
-| Places      | 0.5047      |
-| INaturalist | 0.5870      |
-| Sun         | 0.8096      |
 
 
 # 4. Conclusion
