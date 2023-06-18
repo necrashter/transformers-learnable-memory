@@ -1,6 +1,4 @@
 transformers
 torch
 torchvision
-matplotlib
 tqdm
-IPython
