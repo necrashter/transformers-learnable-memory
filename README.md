@@ -281,6 +281,8 @@ bash ./download_models.sh
 This script requires the `wget` utility, which is preinstalled by default on many Linux distributions.
 
 ## 3.3. Results
+![Results from the paper]([https://github.com/username/repository/raw/main/logo.png](https://github.com/necrashter/transformers-learnable-memory/raw/master/images/results_from_paper.png))
+
 
 | Dataset      | Validation Result |
 | ----------- | ----------- |
