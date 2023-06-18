@@ -253,7 +253,7 @@ Directory structure:
 	│   └── Sun_model.pt
 	├── images
 	├── mnist
-	│
+	├── download_models.sh *
 	├── vit_train.py *
 	├── vit_validation.py *
 	├── vit.py *
@@ -364,7 +364,7 @@ An important side note is in our script we do not multiply accuracy values with 
 
 # 4. Conclusion
 
-@TODO: Discuss the paper in relation to the results in the paper and your results.
+The method that the paper proposed integrated learnable memory tokens into each self-attention layer, presenting a novel approach to model fine-tuning. Moreover, the attention masking strategy ensured that the model's performance on previous datasets remained unaffected. In our implementation, we could not conduct every experiment that the paper has examined because of time constraints, but we were able to get comparable results with 1 memory token even though we have used smaller number of steps for datasets. Moreover, we only conduct experiments for 1 memory cell but anyone who uses our implementation can conduct experiments with the number of memory tokens as his/her wish by giving as an argument to the scripts. We did not fully reproduce the results as we have used different number of batch sizes, random splits over some datasets and randomness of the memory token initializations, but the results showed that we can achieve the fin-etuning memory token benefits in our implementation.
 
 # 5. References
 
