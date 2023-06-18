@@ -284,7 +284,7 @@ python3 vit_validation.py --models_list CIFAR100 INaturalist Places Sun
 You can contact us by opening an issue in this repository, which is preferred for matters related to this implementation.
 Alternatively, you can send an e-mail to us:
 - İlker Işık, e238051@metu.edu.tr
-- Ege Berk Büyükbaş, @TODO
+- Ege Berk Büyükbaş, ege.buyukbas@metu.edu.tr
 
 # License
 
