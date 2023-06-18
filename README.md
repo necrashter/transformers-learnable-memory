@@ -357,7 +357,7 @@ The our implementation accuracy values can be seen in the below table.
 <i>Table 3. Validation results for different datasets from our implementation.</i>
 </p>
 
-As we can easily see, we have similar results with the results of the paper implementation. Only CIFAR-100 dataset has significantly worse result than paper. The reasons that we thought are the number of epochs and relatively small dataset. We only trained for 20 epochs because we want to have similar number of epochs for each dataset, and other datasets are much bigger than CIFAR-100 dataset, so 20 epochs may be a little bit small number for a relatively small dataset. 
+As we can easily see, we have similar results with the results of the paper implementation. Only CIFAR-100 dataset has significantly worse result than paper. The reasons that we thought are the number of steps we chose and relatively small dataset. We only trained for 15640 steps because of the time constraints, so 15640 steps may be a little bit small number.
 
 An important side note is in our script we do not multiply accuracy values with 100, so you will see floating point numbers for the accuracy values. You have to multiply these values with 100 to get accuracy percentage.
 
