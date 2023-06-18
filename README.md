@@ -359,7 +359,7 @@ Alternatively, you can change the `home_dir` variable directly in `test_vit.py`.
 
 As we stated the datasets are tremendous, so we could not conduct experiments for every experiments that the paper has implemented. We only tried 1 memory cell (token) model for the 4 datasets. In addition to that, as we stated we have faced some resource problems in terms of time and memory constraints. Moreover, some datasets do not have train and validation partitions and the paper did not share their splitting logic, so we just randomly splitted the dataset.
 Even though there are some limitations as we stated, we still get comparable results with the paper implementation. In addition to that, we even get better accuracy for SUN-397 and i-Naturalist datasets which do not have train and validation set by default, so one of the reason why we get better accuracy is the randomly split of the datasets. The accuracy values of the paper can be seen below.
-<p align="center"><img src="images/results_from_paper.png" width="500"></p>
+<p align="center"><img src="images/results_from_paper.png" width="700"></p>
 <p align="center"><i>Table 2. Accuracy for different datasets for each fine-tuning regime of the paper (Borrowed from the paper.)</i></p>
 
 We only compare the results with the column 1 cells which is the result for finetuning 1 memory token models.
