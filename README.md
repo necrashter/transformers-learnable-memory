@@ -388,7 +388,7 @@ The our implementation accuracy values can be seen in the below table.
     <td>50.47</td>
   </tr>
 </table>
-<i>Table 3. Validation results for different datasets from our implementation.</i>
+<i>Table 3. Validation results for different datasets from our implementation. (Our result.)</i>
 </p>
 
 As we can easily see, we have similar results with the results of the paper implementation. Only CIFAR-100 dataset has significantly worse result than paper. The reasons that we thought are the number of steps we chose and relatively small dataset. We only trained for 15640 steps because of the time constraints, so 15640 steps may be a little bit small number.
